@@ -9,7 +9,9 @@
 #define TX_PIN 4
 
 #define LED_BLINK 11
-#define LED_MESH 14
+#define LED_RXTX_STATUS 14
+#define LED_MESH 21
+
 
 #define WATCHDOG_TIMEOUT 30
 

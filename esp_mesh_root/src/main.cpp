@@ -20,6 +20,9 @@ int rxBufferIndex = 0;
 unsigned long lastReceivedTime = 0;
 unsigned long lastMeshReceivedTime = 0;
 
+extern unsigned long lastLedUpdateTime;
+extern bool ledRxtxOn;
+
 std::deque<std::vector<uint8_t>> packetQueue;
 
 void handleMeshReceive(uint32_t from, String& msg);
@@ -32,6 +35,7 @@ void setup() {
     esp_task_wdt_add(nullptr);
 
     pinMode(LED_BLINK, OUTPUT);
+    pinMode(LED_RXTX_STATUS, OUTPUT);
     pinMode(LED_MESH, OUTPUT);
 
     mesh.init(MESH_PREFIX, MESH_PASSWORD, MESH_PORT, WIFI_AP_STA, MESH_CHANNEL);
@@ -97,6 +101,9 @@ void processUartInput() {
         mesh.sendBroadcast(hexMessage);
         Serial.println("Broadcasting TCP Packet");
         rxBufferIndex = 0;
+        
+        ledRxtxOn = true;
+        lastLedUpdateTime = now;
     }
 }
 
