@@ -1,5 +1,4 @@
-
-
+#pragma once
 #include "app_config.h"
 
 int hexStringToByteArray(String hexStr, uint8_t *byteArray);

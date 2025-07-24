@@ -1,4 +1,4 @@
-
+#pragma once
 
 void led_handler();
-void updateMeshblink_interval(unsigned long currentMillis);
+void updateMeshBlinkInterval(unsigned long currentMillis);

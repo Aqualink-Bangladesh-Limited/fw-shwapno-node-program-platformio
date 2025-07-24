@@ -1,5 +1,5 @@
+#pragma once
 
-
-void printPacket(uint8_t* packet, int packetSize);
+void printPacket(const uint8_t* packet, int packetSize);
 void printMeshInfo();
 void printConnectedNodes();

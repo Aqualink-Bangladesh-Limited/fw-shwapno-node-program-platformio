@@ -4,151 +4,115 @@
 #include <HardwareSerial.h>
 #include <deque>
 #include <vector>
-#include "debug_print.h"
 #include "app_config.h"
+#include "debug_print.h"
 #include "led_handler.h"
 #include "packet_conversion.h"
 
+constexpr int MAX_PACKET_SIZE = 256;
+constexpr int MAX_QUEUE_SIZE = 20;
+constexpr unsigned long UART_TIMEOUT = 10;
+
 painlessMesh mesh;
 
-const int MAX_PACKET_SIZE = 256;
 uint8_t rxBuffer[MAX_PACKET_SIZE];
 int rxBufferIndex = 0;
 unsigned long lastReceivedTime = 0;
-const unsigned long TIMEOUT = 10;
 unsigned long lastMeshReceivedTime = 0;
 
 std::deque<std::vector<uint8_t>> packetQueue;
-const int MAX_QUEUE_SIZE = 20;
 
-void processIncomingData();
-void sendMessagesFromQueue();
-
-void receivedCallback(uint32_t from, String& msg) {
-
-  lastMeshReceivedTime = millis();
-
-  Serial.print("Received message from node ");
-  Serial.print(from);
-  Serial.print(": ");
-  Serial.println(msg);
-
-  if (msg.length() > 0) {
-    int responseLength = msg.length();
-
-    if (responseLength > MAX_PACKET_SIZE) {
-      Serial.println("Received packet exceeds max size, discarding...");
-      return;
-    }
-
-    if (packetQueue.size() >= MAX_QUEUE_SIZE) {
-      packetQueue.pop_front();
-    }
-
-    uint8_t modbusPacket[256];
-    int modbusPacketSize = hexStringToByteArray(msg, modbusPacket);
-
-    if (modbusPacketSize > 0) {
-      std::vector<uint8_t> packet(modbusPacket, modbusPacket + modbusPacketSize);
-      packetQueue.push_back(packet);
-    }
-  }
-}
+void handleMeshReceive(uint32_t from, String& msg);
+void processUartInput();
+void processPacketQueue();
 
 void setup() {
-  Serial.begin(115200);
+    Serial.begin(115200);
+    esp_task_wdt_init(WATCHDOG_TIMEOUT, true);
+    esp_task_wdt_add(nullptr);
 
-  esp_task_wdt_init(WATCHDOG_TIMEOUT, true);
-  esp_task_wdt_add(NULL);
-  Serial.println("Watchdog timer set for " + String(WATCHDOG_TIMEOUT) + " seconds");
+    pinMode(LED_BLINK, OUTPUT);
+    pinMode(LED_MESH, OUTPUT);
 
-  pinMode(LED_BLINK, OUTPUT);
-  pinMode(LED_MESH, OUTPUT);
+    mesh.init(MESH_PREFIX, MESH_PASSWORD, MESH_PORT, WIFI_AP_STA, MESH_CHANNEL);
+    mesh.setRoot(true);
+    mesh.setContainsRoot(true);
+    mesh.onReceive(handleMeshReceive);
 
-  // Set up mesh network
-  //mesh.setDebugMsgTypes(ERROR | STARTUP | CONNECTION);
-  mesh.init(MESH_PREFIX, MESH_PASSWORD, MESH_PORT, WIFI_AP_STA, MESH_CHANNEL);
-  mesh.setRoot(true);
-  mesh.setContainsRoot(true);
-  mesh.onReceive(receivedCallback);
-
-  printMeshInfo();
-
-
-  Serial2.begin(115200, SERIAL_8N1, RX_PIN, TX_PIN);
+    printMeshInfo();
+    Serial2.begin(115200, SERIAL_8N1, RX_PIN, TX_PIN);
 }
 
 void loop() {
-  esp_task_wdt_reset();
+    esp_task_wdt_reset();
+    mesh.update();
+    processUartInput();
 
-  mesh.update();
+    static unsigned long lastNodePrint = 0;
+    unsigned long now = millis();
+    if (now - lastNodePrint >= 30000) {
+        lastNodePrint = now;
+        printConnectedNodes();
+    }
 
-  processIncomingData();
-
-  static unsigned long lastTime = 0;
-  unsigned long currentMillis = millis();
-  if (currentMillis - lastTime >= 30000) {
-    lastTime = currentMillis;
-    printConnectedNodes();
-  }
-
-  sendMessagesFromQueue();
-  // Send messages to the mesh network periodically
-  //  sendMessagesToMesh();
-
-  led_handler();
+    processPacketQueue();
+    led_handler();
 }
 
-void processIncomingData() {
-  unsigned long currentMillis = millis();
+void handleMeshReceive(uint32_t from, String& msg) {
+    lastMeshReceivedTime = millis();
+    Serial.printf("Received message from node %u: %s\n", from, msg.c_str());
 
-  while (Serial2.available()) {
-    uint8_t incomingByte = Serial2.read();
-    lastReceivedTime = millis();
+    if (msg.isEmpty() || msg.length() > MAX_PACKET_SIZE) return;
 
-    if (rxBufferIndex < MAX_PACKET_SIZE - 1) {
-      rxBuffer[rxBufferIndex++] = incomingByte;
-    } else {
-      Serial.println("Buffer overflow, discarding incomplete packet...");
-      printPacket(rxBuffer, rxBufferIndex);
-
-      rxBufferIndex = 0;
+    if (packetQueue.size() >= MAX_QUEUE_SIZE) {
+        packetQueue.pop_front();
     }
-  }
-  // Timeout check: If we don't receive any data within the TIMEOUT period, treat as a new packet
-  if (currentMillis - lastReceivedTime > TIMEOUT) {
-    if (rxBufferIndex > 0) {
-      Serial.print("Received UART data: ");
-      printPacket(rxBuffer, rxBufferIndex);
 
-      String hexMessage = convertHexToString(rxBuffer, rxBufferIndex);
-      mesh.sendBroadcast(hexMessage);  // Broadcast hex packet as a string
-      Serial.println("Broadcasting TCP Packet");
+    uint8_t modbusPacket[MAX_PACKET_SIZE];
+    int modbusPacketSize = hexStringToByteArray(msg, modbusPacket);
+    if (modbusPacketSize > 0) {
+        packetQueue.emplace_back(modbusPacket, modbusPacket + modbusPacketSize);
     }
-    rxBufferIndex = 0;
-  }
 }
 
-void sendMessagesFromQueue() {
-  unsigned long currentMillis = millis();
-  static unsigned long lastSendTime = 0;
-  const unsigned long interval = 100;  // Send every 100ms
-
-  // Check if 100ms has passed since the last send
-  if (currentMillis - lastSendTime >= interval) {
-    lastSendTime = currentMillis;
-
-    if (!packetQueue.empty()) {
-      std::vector<uint8_t> packet = packetQueue.front();
-      packetQueue.pop_front();  // Remove the sent packet from the queue
-
-      // Send the packet via Serial2
-      for (int i = 0; i < packet.size(); i++) {
-        Serial2.write(packet[i]);
-      }
-
-      Serial.print("Packet Send to Master: ");
-      printPacket(packet.data(), packet.size());
+void processUartInput() {
+    unsigned long now = millis();
+    while (Serial2.available()) {
+        uint8_t incomingByte = Serial2.read();
+        lastReceivedTime = now;
+        if (rxBufferIndex < MAX_PACKET_SIZE - 1) {
+            rxBuffer[rxBufferIndex++] = incomingByte;
+        } else {
+            Serial.println("Buffer overflow, discarding incomplete packet...");
+            printPacket(rxBuffer, rxBufferIndex);
+            rxBufferIndex = 0;
+        }
     }
-  }
+
+    if (now - lastReceivedTime > UART_TIMEOUT && rxBufferIndex > 0) {
+        Serial.print("Received UART data: ");
+        printPacket(rxBuffer, rxBufferIndex);
+        String hexMessage = convertHexToString(rxBuffer, rxBufferIndex);
+        mesh.sendBroadcast(hexMessage);
+        Serial.println("Broadcasting TCP Packet");
+        rxBufferIndex = 0;
+    }
+}
+
+void processPacketQueue() {
+    static unsigned long lastSendTime = 0;
+    constexpr unsigned long SEND_INTERVAL = 100;
+    unsigned long now = millis();
+
+    if (now - lastSendTime >= SEND_INTERVAL && !packetQueue.empty()) {
+        lastSendTime = now;
+        const auto& packet = packetQueue.front();
+        for (uint8_t b : packet) {
+            Serial2.write(b);
+        }
+        Serial.print("Packet sent to Master: ");
+        printPacket(packet.data(), packet.size());
+        packetQueue.pop_front();
+    }
 }
