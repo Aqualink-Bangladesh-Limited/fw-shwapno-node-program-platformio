@@ -4,6 +4,7 @@
 #include <HardwareSerial.h>
 #include <deque>
 #include <vector>
+#include <map>
 #include "app_config.h"
 #include "debug_print.h"
 #include "led_handler.h"
@@ -24,10 +25,19 @@ extern unsigned long lastLedUpdateTime;
 extern bool ledRxtxOn;
 
 std::deque<std::vector<uint8_t>> packetQueue;
+std::map<int, uint32_t> slaveIdToNodeId;
+std::map<int, unsigned long> lastSlaveSeen; 
+
+constexpr unsigned long SLAVE_DISCOVERY_INTERVAL = 5000; 
+constexpr unsigned long SLAVE_TIMEOUT = 300000; 
+unsigned long lastRetryMillis = 0;
+int currentSlave = START_NODE; 
 
 void handleMeshReceive(uint32_t from, String& msg);
 void processUartInput();
 void processPacketQueue();
+void sendCommandToSlave(int slaveId, const String& command);
+void retryMissingSlaves(unsigned long now);
 
 void setup() {
     Serial.begin(115200);
@@ -53,7 +63,9 @@ void loop() {
     processUartInput();
 
     static unsigned long lastNodePrint = 0;
+    static unsigned long lastDiscoveryRetry = 0;
     unsigned long now = millis();
+
     if (now - lastNodePrint >= 30000) {
         lastNodePrint = now;
         printConnectedNodes();
@@ -61,11 +73,23 @@ void loop() {
 
     processPacketQueue();
     led_handler();
+
+    if (now - lastDiscoveryRetry >= SLAVE_DISCOVERY_INTERVAL) {
+        lastDiscoveryRetry = now;
+        retryMissingSlaves(now);
+    }
 }
 
 void handleMeshReceive(uint32_t from, String& msg) {
+    if (msg.startsWith("SLAVE_ID_RESPONSE:")) {
+        int slaveId = msg.substring(18).toInt();
+        slaveIdToNodeId[slaveId] = from;
+        lastSlaveSeen[slaveId] = millis(); 
+        Serial.printf("Mapped slave_id %d to node %u\n", slaveId, from);
+        return;
+    }
+
     lastMeshReceivedTime = millis();
-    Serial.printf("Received message from node %u: %s\n", from, msg.c_str());
 
     if (msg.isEmpty() || msg.length() > MAX_PACKET_SIZE) return;
 
@@ -76,6 +100,11 @@ void handleMeshReceive(uint32_t from, String& msg) {
     uint8_t modbusPacket[MAX_PACKET_SIZE];
     int modbusPacketSize = hexStringToByteArray(msg, modbusPacket);
     if (modbusPacketSize > 0) {
+        int slaveId = modbusPacket[6];
+        lastSlaveSeen[slaveId] = millis();
+        
+        Serial.printf("Received message from node %u, slave id %d: ", from, slaveId);
+        printPacket(modbusPacket, modbusPacketSize);
         packetQueue.emplace_back(modbusPacket, modbusPacket + modbusPacketSize);
     }
 }
@@ -97,9 +126,19 @@ void processUartInput() {
     if (now - lastReceivedTime > UART_TIMEOUT && rxBufferIndex > 0) {
         Serial.print("Received UART data: ");
         printPacket(rxBuffer, rxBufferIndex);
+
+        int slaveId = rxBuffer[12];
+
+        if(!(slaveId >= START_NODE && slaveId <= END_NODE)){ 
+            Serial.printf("Out of range slave_id %d, ignoring packet.\n", slaveId);
+            rxBufferIndex = 0;
+            return;
+        }
+
         String hexMessage = convertHexToString(rxBuffer, rxBufferIndex);
-        mesh.sendBroadcast(hexMessage);
-        Serial.println("Broadcasting TCP Packet");
+        sendCommandToSlave(slaveId, hexMessage);
+        //mesh.sendBroadcast(hexMessage);
+        Serial.println("Send Request Packet to Node:" + String(slaveId) + " with data: " + hexMessage);
         rxBufferIndex = 0;
         
         ledRxtxOn = true;
@@ -122,4 +161,26 @@ void processPacketQueue() {
         printPacket(packet.data(), packet.size());
         packetQueue.pop_front();
     }
+}
+
+void sendCommandToSlave(int slaveId, const String& command) {
+    if (slaveIdToNodeId.find(slaveId) != slaveIdToNodeId.end()) {
+        mesh.sendSingle(slaveIdToNodeId[slaveId], command);
+        Serial.printf("Sent command to slave_id %d (node %u)\n", slaveId, slaveIdToNodeId[slaveId]);
+    } else {
+        Serial.printf("No node mapped for slave_id %d\n", slaveId);
+    }
+}
+
+void retryMissingSlaves(unsigned long now) {
+   
+    bool missing = slaveIdToNodeId.find(currentSlave) == slaveIdToNodeId.end();
+    bool timedOut = !missing && (now - lastSlaveSeen[currentSlave] > SLAVE_TIMEOUT);
+    if (missing || timedOut) {
+        String requestMsg = "SLAVE_ID_REQUEST:" + String(currentSlave);
+        mesh.sendBroadcast(requestMsg);
+        Serial.printf("Retrying discovery for slave_id %d\n", currentSlave);
+    }
+    currentSlave = (currentSlave == END_NODE) ? START_NODE : (currentSlave + 1);
+    lastRetryMillis = now;
 }

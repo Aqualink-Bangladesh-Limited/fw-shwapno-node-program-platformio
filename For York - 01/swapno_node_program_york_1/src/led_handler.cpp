@@ -68,13 +68,9 @@ void blink_ac_led() {
 void update_mesh_blink_interval(unsigned long now) {
   if (now - lastMeshReceivedTime <= MESH_INTERVAL) {
     mesh_blink_interval = 2000;
-    restart_count = 0;
   } else {
     mesh_blink_interval = 500;
-    restart_count++;
-    if (restart_count > MAX_RESTART) {
-      Serial.println("ESP Restarting.....");
-      ESP.restart();
-    }
+    Serial.println("ESP Restarting.....");
+    ESP.restart();
   }
 }

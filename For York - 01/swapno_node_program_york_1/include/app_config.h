@@ -6,7 +6,7 @@
 #define MESH_PREFIX      "meshNetwork2"
 #define MESH_PASSWORD    "meshPassword2"
 #define MESH_PORT        5552
-#define MESH_CHANNEL     2
+#define MESH_CHANNEL     5
 
 #define NODE_ID          8
 #define irRawLength      147
@@ -25,7 +25,7 @@
 #define NUM_REGS         2
 
 #define WATCHDOG_TIMEOUT 30
-#define MESH_INTERVAL    (5 * 60 * 1000)
+#define MESH_INTERVAL    (10 * 60 * 1000)
 #define ONE_SECOND       1000
 
 extern uint16_t arr[5];
