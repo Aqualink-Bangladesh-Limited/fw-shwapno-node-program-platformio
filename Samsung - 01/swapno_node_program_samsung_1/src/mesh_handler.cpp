@@ -1,6 +1,7 @@
 #include <painlessMesh.h>
 #include "request_handler.h"
 #include "data_type_conversion.h"
+#include "debug_print.h"
 
 painlessMesh mesh;
 
@@ -10,6 +11,15 @@ void receivedCallback(uint32_t from, String &msg) {
   lastMeshReceivedTime = millis();
 
   Serial.printf("Received message from node %u: %s\n", from, msg.c_str());
+
+  if (msg.startsWith("SLAVE_ID_REQUEST:")) {
+    int requestedId = msg.substring(17).toInt();
+    if (requestedId == NODE_ID) {
+        String response = "SLAVE_ID_RESPONSE:" + String(NODE_ID);
+        mesh.sendSingle(from, response);
+    }
+    return;
+  }
 
   uint8_t modbusPacket[256];
   int modbusPacketSize = hexStringToByteArray(msg, modbusPacket);
@@ -44,7 +54,8 @@ void receivedCallback(uint32_t from, String &msg) {
     String responseHexStr = byteArrayToHexString(responsePacket, len + 6);
     responseHexStr.toUpperCase();
 
-    Serial.println("Response Hex String: " + responseHexStr);
+    Serial.print("Response Hex String: ");
+    printPacket(responsePacket, len + 6);
 
     mesh.sendSingle(from, responseHexStr);
   }
@@ -52,6 +63,7 @@ void receivedCallback(uint32_t from, String &msg) {
 
 void mesh_init() {
   mesh.init(MESH_PREFIX, MESH_PASSWORD, MESH_PORT, WIFI_AP_STA, MESH_CHANNEL);
+  mesh.setContainsRoot(true);
   mesh.onReceive(receivedCallback);
   meshInfo();
 }

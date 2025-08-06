@@ -9,7 +9,6 @@ int ac_led_state = 0;
 int led_blink_state = 0;
 unsigned long last_led_blink = 0;
 unsigned long led_blink_interval = 5000;
-int restart_count = 0;
 
 void handle_ac_led(uint16_t ac_state);
 void blink_ac_led();

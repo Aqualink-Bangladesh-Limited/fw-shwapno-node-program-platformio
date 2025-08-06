@@ -5,10 +5,6 @@
 
 painlessMesh mesh;
 
-bool meshConnected = false;
-unsigned long lastSlaveIdSent = 0;
-const unsigned long SLAVE_ID_SEND_INTERVAL = 60000; // 1 minute
-
 void meshInfo();
 
 void receivedCallback(uint32_t from, String &msg) {

@@ -25,7 +25,7 @@
 #define NUM_REGS         2
 
 #define WATCHDOG_TIMEOUT 30
-#define MESH_INTERVAL    (5 * 60 * 1000)
+#define MESH_INTERVAL    (10 * 60 * 1000)
 #define ONE_SECOND       1000
 
 extern uint16_t arr[5];
