@@ -36,7 +36,7 @@ constexpr int MAX_QUEUE_SIZE = 20;
 unsigned long lastAttemptTime = 0;
 constexpr unsigned long WIFI_TIMEOUT = 60000;
 int restartCount = 0;
-constexpr int MAX_RESTARTS = 100;
+constexpr int MAX_RESTARTS = 50;
 
 void connectToWiFi();
 void processUdpAndSerial();
