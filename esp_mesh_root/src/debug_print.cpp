@@ -5,6 +5,8 @@
 extern painlessMesh mesh;
 extern std::map<int, uint32_t> slaveIdToNodeId;
 
+void printMeshLayout();
+
 void printPacket(const uint8_t* packet, int packetSize) {
     for (int i = 0; i < packetSize; i++) {
         if (packet[i] < 0x10) Serial.print("0");
@@ -49,4 +51,11 @@ void printConnectedNodes() {
         }
         
     }
+    printMeshLayout();
+}
+
+void printMeshLayout() {
+    String layout = mesh.subConnectionJson(true);
+    Serial.println("Mesh Layout:");
+    Serial.println(layout);
 }

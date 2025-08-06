@@ -13,8 +13,6 @@ unsigned long last_read_time = 0;
 unsigned long last_ir_send_time = 0;
 unsigned long lastMeshReceivedTime = 0;
 
-void check_rssi();
-
 void setup() {
   Serial.begin(115200);
 
@@ -44,7 +42,6 @@ void loop() {
     last_print_time = currentMillis;
     Serial.printf("AC Set Temp: %d  AC Status: %d  AC Hit: %d  AC Cooldown: %d\n", arr[0], arr[1], arr[2], arr[3]);
     Serial.printf("Sensor Temp: %d  Humidity: %d\n", temperature, humidity);
-    check_rssi();
   }
 
   unsigned long sensor_read_interval = arr[4] * ONE_SECOND;
@@ -61,12 +58,4 @@ void loop() {
   }
 
   led_handler();
-}
-
-void check_rssi() {
-  int rssi = WiFi.RSSI();
-  Serial.printf("Current RSSI: %d dBm\n", rssi);
-  if (rssi < -80) {
-    Serial.println("Warning: Weak signal detected!");
-  }
 }
