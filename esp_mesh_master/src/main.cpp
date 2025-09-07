@@ -34,9 +34,11 @@ std::deque<std::vector<uint8_t>> packetQueue;
 constexpr int MAX_QUEUE_SIZE = 20;
 
 unsigned long lastAttemptTime = 0;
-constexpr unsigned long WIFI_TIMEOUT = 60000;
+constexpr unsigned long WIFI_TIMEOUT = 300000; // 5 minutes
 int restartCount = 0;
 constexpr int MAX_RESTARTS = 50;
+
+constexpr unsigned long RESTART_TIMEOUT = 900000; // 15 minutes
 
 void connectToWiFi();
 void processUdpAndSerial();
@@ -70,10 +72,10 @@ void loop()
   esp_task_wdt_reset();
 
   unsigned long currentMillis = millis();
-
-  digitalWrite(LED_WIFI_STATUS, WiFi.status() == WL_CONNECTED ? HIGH : LOW);
-  if (WiFi.status() != WL_CONNECTED)
+  
+  if (WiFi.status() != WL_CONNECTED){
     connectToWiFi();
+  }
 
   processUdpAndSerial();
 
@@ -94,6 +96,41 @@ void loop()
     lastBlinkTime = currentMillis;
     ledState = !ledState;
     digitalWrite(LED_BLINK, ledState ? HIGH : LOW);
+  }
+
+  if (currentMillis - lastLedUpdateTime > RESTART_TIMEOUT)
+  {
+    Serial.println("No UDP data received in 15 minutes. Restarting ESP...");
+    ESP.restart();
+  }
+
+  if (currentMillis - lastReceivedTime > RESTART_TIMEOUT)
+  {
+    Serial.println("No TX/RX data received in 15 minutes. Restarting ESP...");
+    ESP.restart();
+  }
+
+  static unsigned long lastWifiBlinkTime = 0;
+  static bool wifiLedState = false;
+
+  if (WiFi.status() != WL_CONNECTED) {
+      digitalWrite(LED_WIFI_STATUS, LOW);
+  } else {
+      long rssi = WiFi.RSSI();
+      unsigned long blinkInterval;
+      if (rssi > -60) {
+          blinkInterval = 100; 
+      } else if (rssi > -75) {
+          blinkInterval = 300;
+      } else {
+          blinkInterval = 700;
+      }
+
+      if (millis() - lastWifiBlinkTime >= blinkInterval) {
+          lastWifiBlinkTime = millis();
+          wifiLedState = !wifiLedState;
+          digitalWrite(LED_WIFI_STATUS, wifiLedState ? HIGH : LOW);
+      }
   }
 }
 

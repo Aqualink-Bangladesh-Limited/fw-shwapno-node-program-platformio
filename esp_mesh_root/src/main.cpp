@@ -33,6 +33,8 @@ constexpr unsigned long SLAVE_TIMEOUT = 300000;
 unsigned long lastRetryMillis = 0;
 int currentSlave = START_NODE; 
 
+constexpr unsigned long RESTART_TIMEOUT = 900000; // 15 minutes
+
 void handleMeshReceive(uint32_t from, String& msg);
 void processUartInput();
 void processPacketQueue();
@@ -77,6 +79,16 @@ void loop() {
     if (now - lastDiscoveryRetry >= SLAVE_DISCOVERY_INTERVAL) {
         lastDiscoveryRetry = now;
         retryMissingSlaves(now);
+    }
+
+    if (now - lastReceivedTime > RESTART_TIMEOUT) {
+        Serial.println("Restarting: No UART RX/TX data for 15 minutes.");
+        ESP.restart();
+    }
+
+    if (now - lastMeshReceivedTime > RESTART_TIMEOUT) {
+        Serial.println("Restarting: No mesh data for 15 minutes.");
+        ESP.restart();
     }
 }
 

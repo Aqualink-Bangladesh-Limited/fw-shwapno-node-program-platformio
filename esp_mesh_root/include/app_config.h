@@ -18,5 +18,5 @@
 
 #define WATCHDOG_TIMEOUT 30
 
-#define MESH_INTERVAL (10 * 60 * 1000)
+#define MESH_INTERVAL (5 * 60 * 1000)
 

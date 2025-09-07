@@ -1,7 +1,5 @@
 #include "led_handler.h"
 
-#define MAX_RESTART 10
-
 unsigned long mesh_blink_interval = 500;
 unsigned long last_mesh_led_blink = 0;
 bool mesh_led_state = false;
@@ -44,16 +42,9 @@ void update_mesh_blink_interval(unsigned long now)
   if (now - lastMeshReceivedTime <= MESH_INTERVAL)
   {
     mesh_blink_interval = 2000;
-    restart_count = 0;
   }
   else
   {
     mesh_blink_interval = 500;
-    restart_count++;
-    if (restart_count > MAX_RESTART)
-    {
-      Serial.println("ESP Restarting.....");
-      ESP.restart();
-    }
   }
 }

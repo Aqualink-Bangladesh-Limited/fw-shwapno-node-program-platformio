@@ -12,6 +12,8 @@ unsigned long last_read_time = 0;
 unsigned long last_ir_send_time = 0;
 unsigned long lastMeshReceivedTime = 0;
 
+constexpr unsigned long RESTART_TIMEOUT = 900000; // 15 minutes
+
 void setup() {
   Serial.begin(115200);
 
@@ -57,4 +59,9 @@ void loop() {
   }
 
   led_handler();
+  
+  if (currentMillis - lastMeshReceivedTime >= RESTART_TIMEOUT) {
+    Serial.println("Mesh disconnected for 15 minutes. ESP Restarting.....");
+    ESP.restart();
+  }
 }

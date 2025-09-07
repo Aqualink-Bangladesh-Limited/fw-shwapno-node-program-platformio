@@ -69,7 +69,5 @@ void update_mesh_blink_interval(unsigned long now) {
     mesh_blink_interval = 2000;
   } else {
     mesh_blink_interval = 500;
-    Serial.println("ESP Restarting.....");
-    ESP.restart();
   }
 }
