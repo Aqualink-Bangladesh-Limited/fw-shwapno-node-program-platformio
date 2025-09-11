@@ -3,7 +3,7 @@
 #pragma once
 
 // WiFi credentials
-constexpr const char *WIFI_SSID = "Aqualink_Sensometer";
+constexpr const char *WIFI_SSID = "shwapno_v2_mesh";
 constexpr const char *WIFI_PASSWORD = "aqualink@321";
 
 // Serial pins
@@ -13,7 +13,7 @@ constexpr int TX_PIN = 4;
 // LED pins
 constexpr int LED_WIFI_STATUS = 21;
 constexpr int LED_RXTX_STATUS = 14;
-constexpr int LED_BLINK = 11;
+constexpr int LED_UDP_STATUS = 11;
 
 // Watchdog timeout (seconds)
 constexpr int WATCHDOG_TIMEOUT = 30;

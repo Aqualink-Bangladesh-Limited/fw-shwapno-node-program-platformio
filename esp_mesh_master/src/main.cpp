@@ -13,9 +13,10 @@ WiFiUDP udp;
 int udpPort = UDP_DEFAULT_PORT;
 IPAddress udpAddress(UDP_BROADCAST_IP[0], UDP_BROADCAST_IP[1], UDP_BROADCAST_IP[2], UDP_BROADCAST_IP[3]);
 
-unsigned long lastLedUpdateTime = 0;
+unsigned long lastUdpUpdateTime = 0;
+unsigned long lastRxtxUpdateTime = 0;
 constexpr unsigned long LED_UPDATE_INTERVAL = 500;
-bool ledWifiOn = false;
+bool ledUdpOn = false;
 bool ledRxtxOn = false;
 
 constexpr int MAX_PACKET_SIZE = 256;
@@ -33,13 +34,15 @@ bool ledState = false;
 std::deque<std::vector<uint8_t>> packetQueue;
 constexpr int MAX_QUEUE_SIZE = 20;
 
-unsigned long lastAttemptTime = 0;
+unsigned long lastConnectedTime = 0;
 constexpr unsigned long WIFI_TIMEOUT = 300000; // 5 minutes
 int restartCount = 0;
 constexpr int MAX_RESTARTS = 50;
 
 constexpr unsigned long RESTART_TIMEOUT = 900000; // 15 minutes
+bool wifiConnected = false;
 
+void initWiFi();
 void connectToWiFi();
 void processUdpAndSerial();
 void sendMessagesFromQueue();
@@ -56,11 +59,11 @@ void setup()
 
   pinMode(LED_WIFI_STATUS, OUTPUT);
   pinMode(LED_RXTX_STATUS, OUTPUT);
-  pinMode(LED_BLINK, OUTPUT);
+  pinMode(LED_UDP_STATUS, OUTPUT);
 
   Serial2.begin(115200, SERIAL_8N1, RX_PIN, TX_PIN);
 
-  connectToWiFi();
+  initWiFi();
 
   udp.begin(udpPort);
 
@@ -72,14 +75,33 @@ void loop()
   esp_task_wdt_reset();
 
   unsigned long currentMillis = millis();
-  
-  if (WiFi.status() != WL_CONNECTED){
+
+  if (WiFi.status() != WL_CONNECTED)
+  {
     connectToWiFi();
+    wifiConnected = false;
+  }
+  else
+  {
+    lastConnectedTime = millis();
+
+    if (!wifiConnected)
+    {
+      wifiConnected = true;
+
+      Serial.println("Connected to Wi-Fi!");
+      Serial.print("IP Address: ");
+      Serial.println(WiFi.localIP());
+
+      restartCount = 0;
+      EEPROM.write(0, restartCount);
+      EEPROM.commit();
+    }
   }
 
   processUdpAndSerial();
 
-  if (currentMillis - lastLedUpdateTime < 2000 && ledRxtxOn)
+  if (currentMillis - lastRxtxUpdateTime < 2000 && ledRxtxOn)
   {
     digitalWrite(LED_RXTX_STATUS, HIGH);
   }
@@ -89,22 +111,25 @@ void loop()
     ledRxtxOn = false;
   }
 
-  sendMessagesFromQueue();
-
-  if (currentMillis - lastBlinkTime >= BLINK_INTERVAL)
+  if (currentMillis - lastUdpUpdateTime < 2000 && ledUdpOn)
   {
-    lastBlinkTime = currentMillis;
-    ledState = !ledState;
-    digitalWrite(LED_BLINK, ledState ? HIGH : LOW);
+    digitalWrite(LED_UDP_STATUS, HIGH);
+  }
+  else
+  {
+    digitalWrite(LED_UDP_STATUS, LOW);
+    ledUdpOn = false;
   }
 
-  if (currentMillis - lastLedUpdateTime > RESTART_TIMEOUT)
+  sendMessagesFromQueue();
+
+  if (currentMillis - lastUdpUpdateTime > RESTART_TIMEOUT)
   {
     Serial.println("No UDP data received in 15 minutes. Restarting ESP...");
     ESP.restart();
   }
 
-  if (currentMillis - lastReceivedTime > RESTART_TIMEOUT)
+  if (currentMillis - lastRxtxUpdateTime > RESTART_TIMEOUT)
   {
     Serial.println("No TX/RX data received in 15 minutes. Restarting ESP...");
     ESP.restart();
@@ -113,60 +138,58 @@ void loop()
   static unsigned long lastWifiBlinkTime = 0;
   static bool wifiLedState = false;
 
-  if (WiFi.status() != WL_CONNECTED) {
-      digitalWrite(LED_WIFI_STATUS, LOW);
-  } else {
-      long rssi = WiFi.RSSI();
-      unsigned long blinkInterval;
-      if (rssi > -60) {
-          blinkInterval = 100; 
-      } else if (rssi > -75) {
-          blinkInterval = 300;
-      } else {
-          blinkInterval = 700;
-      }
-
-      if (millis() - lastWifiBlinkTime >= blinkInterval) {
-          lastWifiBlinkTime = millis();
-          wifiLedState = !wifiLedState;
-          digitalWrite(LED_WIFI_STATUS, wifiLedState ? HIGH : LOW);
-      }
+  if (WiFi.status() != WL_CONNECTED)
+  {
+    digitalWrite(LED_WIFI_STATUS, HIGH);
   }
+  else
+  {
+    long rssi = WiFi.RSSI();
+    unsigned long blinkInterval;
+    if (rssi > -40)
+    {
+      blinkInterval = 500;
+    }
+    else if (rssi > -60)
+    {
+      blinkInterval = 1000;
+    }
+    else
+    {
+      blinkInterval = 2000;
+    }
+
+    if (millis() - lastWifiBlinkTime >= blinkInterval)
+    {
+      lastWifiBlinkTime = millis();
+      wifiLedState = !wifiLedState;
+      digitalWrite(LED_WIFI_STATUS, wifiLedState ? HIGH : LOW);
+    }
+  }
+}
+
+void initWiFi()
+{
+  Serial.println("Initializing Wi-Fi...");
+  WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
 }
 
 void connectToWiFi()
 {
-  Serial.print("Connecting to Wi-Fi");
-  WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
-  lastAttemptTime = millis();
-
-  while (WiFi.status() != WL_CONNECTED)
+  if (millis() - lastConnectedTime >= WIFI_TIMEOUT)
   {
-    delay(1000);
-    Serial.print(".");
+    Serial.println("Failed to connect to Wi-Fi in 1 minute. Restarting...");
 
-    if (millis() - lastAttemptTime >= WIFI_TIMEOUT)
+    restartCount++;
+    EEPROM.write(0, restartCount);
+    EEPROM.commit();
+
+    if (restartCount < MAX_RESTARTS)
     {
-      Serial.println("\nFailed to connect to Wi-Fi in 1 minute. Restarting...");
-
-      restartCount++;
-      EEPROM.write(0, restartCount);
-      EEPROM.commit();
-
-      if (restartCount < MAX_RESTARTS)
-      {
-        Serial.println("ESP Restarting.....");
-        ESP.restart();
-      }
+      Serial.println("ESP Restarting.....");
+      ESP.restart();
     }
   }
-  Serial.println("Connected to Wi-Fi!");
-  Serial.print("IP Address: ");
-  Serial.println(WiFi.localIP());
-
-  restartCount = 0;
-  EEPROM.write(0, restartCount);
-  EEPROM.commit();
 }
 
 void processUdpAndSerial()
@@ -204,8 +227,8 @@ void processUdpAndSerial()
       packet.insert(packet.end(), udpBuffer, udpBuffer + len);
       packetQueue.push_back(packet);
 
-      ledWifiOn = true;
-      lastLedUpdateTime = currentMillis;
+      ledUdpOn = true;
+      lastUdpUpdateTime = currentMillis;
     }
     else
     {
@@ -253,7 +276,7 @@ void processUdpAndSerial()
       udp.endPacket();
 
       ledRxtxOn = true;
-      lastLedUpdateTime = currentMillis;
+      lastRxtxUpdateTime = currentMillis;
     }
     else
     {
