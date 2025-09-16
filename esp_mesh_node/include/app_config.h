@@ -12,9 +12,11 @@
 
 // #define CARRIER_01
 // #define GENERAL_01
-#define GREE_02
+// #define GREE_01
+// #define GREE_02
 // #define MIDEA_01
 // #define MIDEA_02
+#define MIDEA_03
 // #define SAMSUNG_01
 // #define UNKNOWN_01
 // #define UNKNOWN_02
@@ -61,6 +63,13 @@ extern uint16_t ac_on_raw[irRawLength];
 extern uint16_t ac_off_raw[irRawLength];
 extern uint16_t temp_array[13][irRawLength];
 
+#elif defined(GREE_01)
+
+#define irRawLength 279
+extern uint16_t ac_on_raw[irRawLength];
+extern uint16_t ac_off_raw[irRawLength];
+extern uint16_t temp_array[13][irRawLength];
+
 #elif defined(GREE_02)
 
 #define irRawLength 139
@@ -81,6 +90,13 @@ extern uint16_t temp_array[13][irRawLength];
 extern uint16_t ac_on_raw[irRawLength];
 extern uint16_t ac_off_raw[irRawLength];
 extern uint16_t temp_array[13][irRawLength];
+
+#elif defined(MIDEA_03)
+
+#define irRawLength 199
+extern uint16_t ac_on_raw[2][irRawLength];
+extern uint16_t ac_off_raw[2][irRawLength];
+extern uint16_t temp_array[13][2][irRawLength];
 
 #elif defined(SAMSUNG_01)
 
