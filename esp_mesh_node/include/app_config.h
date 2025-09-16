@@ -12,11 +12,11 @@
 
 // #define CARRIER_01
 // #define GENERAL_01
-// #define GREE_01
+#define GREE_01
 // #define GREE_02
 // #define MIDEA_01
 // #define MIDEA_02
-#define MIDEA_03
+// #define MIDEA_03
 // #define SAMSUNG_01
 // #define UNKNOWN_01
 // #define UNKNOWN_02
