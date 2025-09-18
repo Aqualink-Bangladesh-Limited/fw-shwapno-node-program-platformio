@@ -1,4 +1,3 @@
-
 #include <esp_task_wdt.h>
 #include "mesh_handler.h"
 #include "sensor_handler.h"
