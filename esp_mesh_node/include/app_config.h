@@ -3,12 +3,12 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-#define MESH_PREFIX "meshNetwork1"
-#define MESH_PASSWORD "meshPassword1"
-#define MESH_PORT 5551
-#define MESH_CHANNEL 1
+#define MESH_PREFIX "meshNetwork2"
+#define MESH_PASSWORD "meshPassword2"
+#define MESH_PORT 5552
+#define MESH_CHANNEL 6
 
-#define NODE_ID 5
+#define NODE_ID 10
 
 // #define CARRIER_01
 // #define GENERAL_01

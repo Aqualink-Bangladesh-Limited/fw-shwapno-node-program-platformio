@@ -1,12 +1,12 @@
 #pragma once
 
-#define MESH_PREFIX "meshNetwork1"
-#define MESH_PASSWORD "meshPassword1"
-#define MESH_PORT 5551
-#define MESH_CHANNEL 1
+#define MESH_PREFIX "meshNetwork2"
+#define MESH_PASSWORD "meshPassword2"
+#define MESH_PORT 5552
+#define MESH_CHANNEL 6
 
-#define START_NODE  1
-#define END_NODE    7
+#define START_NODE  8
+#define END_NODE    15
 
 #define RX_PIN 18
 #define TX_PIN 17

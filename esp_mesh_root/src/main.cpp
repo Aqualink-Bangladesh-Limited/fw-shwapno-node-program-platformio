@@ -159,7 +159,6 @@ void processUartInput() {
         String hexMessage = convertHexToString(rxBuffer, rxBufferIndex);
         sendCommandToSlave(slaveId, hexMessage);
         //mesh.sendBroadcast(hexMessage);
-        Serial.println("Send Request Packet to Node:" + String(slaveId) + " with data: " + hexMessage);
         rxBufferIndex = 0;
         
         ledRxtxOn = true;
@@ -188,6 +187,7 @@ void sendCommandToSlave(int slaveId, const String& command) {
     if (slaveIdToNodeId.find(slaveId) != slaveIdToNodeId.end()) {
         mesh.sendSingle(slaveIdToNodeId[slaveId], command);
         Serial.printf("Sent command to slave_id %d (node %u)\n", slaveId, slaveIdToNodeId[slaveId]);
+        Serial.println("Send Request Packet to Node:" + String(slaveId) + " with data: " + command);
     } else {
         Serial.printf("No node mapped for slave_id %d\n", slaveId);
     }
