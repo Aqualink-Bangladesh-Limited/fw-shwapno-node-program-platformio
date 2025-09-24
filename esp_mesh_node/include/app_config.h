@@ -29,8 +29,8 @@
 #define LED_MESH 14
 #define IR_PIN 45
 
-#define RX_PIN 5
-#define TX_PIN 4
+#define RX_PIN 18
+#define TX_PIN 17
 #define DIRECTION_PIN 13
 
 #define SLAVE_ID 1

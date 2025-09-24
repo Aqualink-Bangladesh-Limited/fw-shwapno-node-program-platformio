@@ -8,8 +8,8 @@
 #define START_NODE  1
 #define END_NODE    7
 
-#define RX_PIN 5
-#define TX_PIN 4
+#define RX_PIN 18
+#define TX_PIN 17
 
 #define LED_BLINK 11
 #define LED_RXTX_STATUS 14

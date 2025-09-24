@@ -7,8 +7,8 @@ constexpr const char *WIFI_SSID = "Aqualink_Sensometer";
 constexpr const char *WIFI_PASSWORD = "aqualink@321";
 
 // Serial pins
-constexpr int RX_PIN = 5;
-constexpr int TX_PIN = 4;
+constexpr int RX_PIN = 18;
+constexpr int TX_PIN = 17;
 
 #define NODE_ID 1
 #define irRawLength 279
