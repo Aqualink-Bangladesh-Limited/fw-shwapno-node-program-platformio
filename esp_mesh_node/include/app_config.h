@@ -8,7 +8,7 @@
 #define MESH_PORT 5551
 #define MESH_CHANNEL 1
 
-#define NODE_ID 7
+#define NODE_ID 5
 
 // #define CARRIER_01
 // #define GENERAL_01
@@ -18,9 +18,9 @@
 // #define MIDEA_02
 // #define MIDEA_03
 // #define MIDEA_04
-// #define SAMSUNG_01
+#define SAMSUNG_01
 // #define UNKNOWN_01
-#define UNKNOWN_02
+// #define UNKNOWN_02
 // #define YORK_01
 // #define YORK_02
 
@@ -108,9 +108,11 @@ extern uint16_t temp_array[13][irRawLength];
 
 #elif defined(SAMSUNG_01)
 
+#define irOnRawLength 349
+#define irOffRawLength 349
 #define irRawLength 233
-extern uint16_t ac_on_raw[irRawLength];
-extern uint16_t ac_off_raw[irRawLength];
+extern uint16_t ac_on_raw[irOnRawLength];
+extern uint16_t ac_off_raw[irOffRawLength];
 extern uint16_t temp_array[13][irRawLength];
 
 #elif defined(UNKNOWN_01)

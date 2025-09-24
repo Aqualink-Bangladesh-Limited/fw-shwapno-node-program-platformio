@@ -42,6 +42,8 @@ void ac_on()
   irsend.sendRaw(ac_on_raw[0], irRawLength, 38);
   delay(1000);
   irsend.sendRaw(ac_on_raw[1], irRawLength, 38);
+#elif defined(SAMSUNG_01)
+  irsend.sendRaw(ac_on_raw, irOnRawLength, 38);
 #else
   irsend.sendRaw(ac_on_raw, irRawLength, 38);
 
@@ -55,6 +57,8 @@ void ac_off()
   irsend.sendRaw(ac_off_raw[0], irRawLength, 38);
   delay(1000);
   irsend.sendRaw(ac_off_raw[1], irRawLength, 38);
+#elif defined(SAMSUNG_01)
+  irsend.sendRaw(ac_off_raw, irOffRawLength, 38);
 #else
   irsend.sendRaw(ac_off_raw, irRawLength, 38);
 #endif
