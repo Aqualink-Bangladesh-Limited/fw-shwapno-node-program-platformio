@@ -3,12 +3,12 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-#define MESH_PREFIX "meshNetwork2"
-#define MESH_PASSWORD "meshPassword2"
-#define MESH_PORT 5552
-#define MESH_CHANNEL 6
+#define MESH_PREFIX "meshNetwork1"
+#define MESH_PASSWORD "meshPassword1"
+#define MESH_PORT 5551
+#define MESH_CHANNEL 1
 
-#define NODE_ID 10
+#define NODE_ID 07
 
 // #define CARRIER_01
 // #define GENERAL_01
@@ -18,9 +18,10 @@
 // #define MIDEA_02
 // #define MIDEA_03
 // #define MIDEA_04
-#define SAMSUNG_01
+// #define SAMSUNG_01
 // #define UNKNOWN_01
 // #define UNKNOWN_02
+#define MALAYSIAN_BOARD_01
 // #define YORK_01
 // #define YORK_02
 
@@ -125,6 +126,13 @@ extern uint16_t temp_array[13][irRawLength];
 #elif defined(UNKNOWN_02)
 
 #define irRawLength 227
+extern uint16_t ac_on_raw[irRawLength];
+extern uint16_t ac_off_raw[irRawLength];
+extern uint16_t temp_array[13][irRawLength];
+
+#elif defined(MALAYSIAN_BOARD_01)
+
+#define irRawLength 267
 extern uint16_t ac_on_raw[irRawLength];
 extern uint16_t ac_off_raw[irRawLength];
 extern uint16_t temp_array[13][irRawLength];
