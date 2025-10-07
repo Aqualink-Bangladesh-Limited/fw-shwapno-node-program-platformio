@@ -21,9 +21,10 @@
 // #define SAMSUNG_01
 // #define UNKNOWN_01
 // #define UNKNOWN_02
-#define MALAYSIAN_BOARD_01
+// #define MALAYSIAN_BOARD_01
 // #define YORK_01
 // #define YORK_02
+#define CHIGO_01
 
 #define LED_MESH_SIGNAL_STATUS 11
 #define LED_AC_STATUS 21
@@ -147,6 +148,13 @@ extern uint16_t temp_array[13][irRawLength];
 #elif defined(YORK_02)
 
 #define irRawLength 199
+extern uint16_t ac_on_raw[irRawLength];
+extern uint16_t ac_off_raw[irRawLength];
+extern uint16_t temp_array[13][irRawLength];
+
+#elif defined(CHIGO_01)
+
+#define irRawLength 197
 extern uint16_t ac_on_raw[irRawLength];
 extern uint16_t ac_off_raw[irRawLength];
 extern uint16_t temp_array[13][irRawLength];
