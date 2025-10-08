@@ -38,13 +38,23 @@ void ir_handler()
 void ac_on()
 {
   Serial.println("AC On Function Called");
-  irsend.sendRaw(ac_on_raw, sizeof(ac_on_raw) / sizeof(ac_on_raw[0]), 38);
+
+#if defined(SAMSUNG_01)
+  irsend.sendRaw(ac_on_raw, irOnRawLength, 38);
+#else
+  irsend.sendRaw(ac_on_raw, irRawLength, 38);
+#endif
 }
 
 void ac_off()
 {
   Serial.println("AC Off Function Called");
-  irsend.sendRaw(ac_off_raw, sizeof(ac_off_raw) / sizeof(ac_off_raw[0]), 38);
+
+#if defined(SAMSUNG_01)
+  irsend.sendRaw(ac_off_raw, irOffRawLength, 38);
+#else
+  irsend.sendRaw(ac_off_raw, irRawLength, 38);
+#endif
 }
 
 void ac_temperature_set(uint16_t temp)
