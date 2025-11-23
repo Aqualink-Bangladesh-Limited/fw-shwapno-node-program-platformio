@@ -30,6 +30,7 @@ std::map<int, unsigned long> lastSlaveSeen;
 
 constexpr unsigned long SLAVE_DISCOVERY_INTERVAL = 5000; 
 constexpr unsigned long SLAVE_TIMEOUT = 300000; 
+constexpr unsigned long DUMMY_BROADCAST_INTERVAL = 120000; 
 unsigned long lastRetryMillis = 0;
 int currentSlave = START_NODE; 
 
@@ -66,6 +67,7 @@ void loop() {
 
     static unsigned long lastNodePrint = 0;
     static unsigned long lastDiscoveryRetry = 0;
+    static unsigned long lastDummyBroadcast = 0;
     unsigned long now = millis();
 
     if (now - lastNodePrint >= 30000) {
@@ -79,6 +81,13 @@ void loop() {
     if (now - lastDiscoveryRetry >= SLAVE_DISCOVERY_INTERVAL) {
         lastDiscoveryRetry = now;
         retryMissingSlaves(now);
+    }
+
+    if (now - lastDummyBroadcast >= DUMMY_BROADCAST_INTERVAL) {
+        lastDummyBroadcast = now;
+        String dummyMsg = "DUMMY_BROADCAST";
+        mesh.sendBroadcast(dummyMsg);
+        Serial.println("Broadcasted dummy message to mesh: " + dummyMsg);
     }
 
     if (now - lastReceivedTime > RESTART_TIMEOUT) {
@@ -150,7 +159,6 @@ void processUartInput() {
         String hexMessage = convertHexToString(rxBuffer, rxBufferIndex);
         sendCommandToSlave(slaveId, hexMessage);
         //mesh.sendBroadcast(hexMessage);
-        Serial.println("Send Request Packet to Node:" + String(slaveId) + " with data: " + hexMessage);
         rxBufferIndex = 0;
         
         ledRxtxOn = true;
@@ -179,6 +187,7 @@ void sendCommandToSlave(int slaveId, const String& command) {
     if (slaveIdToNodeId.find(slaveId) != slaveIdToNodeId.end()) {
         mesh.sendSingle(slaveIdToNodeId[slaveId], command);
         Serial.printf("Sent command to slave_id %d (node %u)\n", slaveId, slaveIdToNodeId[slaveId]);
+        Serial.println("Send Request Packet to Node:" + String(slaveId) + " with data: " + command);
     } else {
         Serial.printf("No node mapped for slave_id %d\n", slaveId);
     }

@@ -7,8 +7,8 @@ constexpr const char *WIFI_SSID = "shwapno_v2_mesh";
 constexpr const char *WIFI_PASSWORD = "aqualink@321";
 
 // Serial pins
-constexpr int RX_PIN = 5;
-constexpr int TX_PIN = 4;
+constexpr int RX_PIN = 18;
+constexpr int TX_PIN = 17;
 
 // LED pins
 constexpr int LED_WIFI_STATUS = 21;

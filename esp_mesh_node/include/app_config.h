@@ -8,7 +8,7 @@
 #define MESH_PORT 5551
 #define MESH_CHANNEL 1
 
-#define NODE_ID 7
+#define NODE_ID 07
 
 // #define CARRIER_01
 // #define GENERAL_01
@@ -16,21 +16,24 @@
 // #define GREE_02
 // #define MIDEA_01
 // #define MIDEA_02
-// #define MIDEA_03
+#define MIDEA_03
 // #define MIDEA_04
 // #define SAMSUNG_01
 // #define UNKNOWN_01
-#define UNKNOWN_02
+// #define UNKNOWN_02
+// #define MALAYSIAN_BOARD_01
 // #define YORK_01
 // #define YORK_02
+// #define CHIGO_01
+// #define QUNDA
 
 #define LED_MESH_SIGNAL_STATUS 11
 #define LED_AC_STATUS 21
 #define LED_MESH 14
 #define IR_PIN 45
 
-#define RX_PIN 5
-#define TX_PIN 4
+#define RX_PIN 18
+#define TX_PIN 17
 #define DIRECTION_PIN 13
 
 #define SLAVE_ID 1
@@ -95,9 +98,9 @@ extern uint16_t temp_array[13][irRawLength];
 #elif defined(MIDEA_03)
 
 #define irRawLength 199
-extern uint16_t ac_on_raw[2][irRawLength];
-extern uint16_t ac_off_raw[2][irRawLength];
-extern uint16_t temp_array[13][2][irRawLength];
+extern uint16_t ac_on_raw[irRawLength];
+extern uint16_t ac_off_raw[irRawLength];
+extern uint16_t temp_array[13][irRawLength];
 
 #elif defined(MIDEA_04)
 
@@ -108,9 +111,11 @@ extern uint16_t temp_array[13][irRawLength];
 
 #elif defined(SAMSUNG_01)
 
+#define irOnRawLength 349
+#define irOffRawLength 349
 #define irRawLength 233
-extern uint16_t ac_on_raw[irRawLength];
-extern uint16_t ac_off_raw[irRawLength];
+extern uint16_t ac_on_raw[irOnRawLength];
+extern uint16_t ac_off_raw[irOffRawLength];
 extern uint16_t temp_array[13][irRawLength];
 
 #elif defined(UNKNOWN_01)
@@ -127,6 +132,13 @@ extern uint16_t ac_on_raw[irRawLength];
 extern uint16_t ac_off_raw[irRawLength];
 extern uint16_t temp_array[13][irRawLength];
 
+#elif defined(MALAYSIAN_BOARD_01)
+
+#define irRawLength 267
+extern uint16_t ac_on_raw[irRawLength];
+extern uint16_t ac_off_raw[irRawLength];
+extern uint16_t temp_array[13][irRawLength];
+
 #elif defined(YORK_01)
 
 #define irRawLength 147
@@ -137,6 +149,20 @@ extern uint16_t temp_array[13][irRawLength];
 #elif defined(YORK_02)
 
 #define irRawLength 199
+extern uint16_t ac_on_raw[irRawLength];
+extern uint16_t ac_off_raw[irRawLength];
+extern uint16_t temp_array[13][irRawLength];
+
+#elif defined(CHIGO_01)
+
+#define irRawLength 197
+extern uint16_t ac_on_raw[irRawLength];
+extern uint16_t ac_off_raw[irRawLength];
+extern uint16_t temp_array[13][irRawLength];
+
+#elif defined(QUNDA)
+
+#define irRawLength 83
 extern uint16_t ac_on_raw[irRawLength];
 extern uint16_t ac_off_raw[irRawLength];
 extern uint16_t temp_array[13][irRawLength];
