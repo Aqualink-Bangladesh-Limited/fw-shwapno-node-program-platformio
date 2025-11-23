@@ -10,6 +10,8 @@
 
 #define NODE_ID          8
 #define irRawLength      233
+#define irOnRawLength    349
+#define irOffRawLength   349
 
 #define LED_BLINK        11
 #define LED_AC_STATUS    21
