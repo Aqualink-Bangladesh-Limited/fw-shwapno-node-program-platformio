@@ -32,8 +32,6 @@
 // #define BOARD_VERSION_03
 // #define BOARD_VERSION_04
 
-#define irRawLength 147
-
 #define SLAVE_ID 1
 #define START_ADDRESS 0
 #define NUM_REGS 2
@@ -210,4 +208,5 @@ extern uint16_t temp_array[13][irRawLength];
 extern uint16_t ac_on_raw[irRawLength];
 extern uint16_t ac_off_raw[irRawLength];
 extern uint16_t temp_array[13][irRawLength];
+
 #endif
