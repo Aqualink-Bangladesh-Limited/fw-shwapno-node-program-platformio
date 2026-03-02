@@ -27,14 +27,10 @@
 // #define CHIGO_01
 // #define QUNDA
 
-#define LED_MESH_SIGNAL_STATUS 11
-#define LED_AC_STATUS 21
-#define LED_MESH 14
-#define IR_PIN 45
-
-#define RX_PIN 18
-#define TX_PIN 17
-#define DIRECTION_PIN 13
+// #define BOARD_VERSION_01
+// #define BOARD_VERSION_02
+// #define BOARD_VERSION_03
+#define BOARD_VERSION_04
 
 #define SLAVE_ID 1
 #define START_ADDRESS 0
@@ -52,6 +48,51 @@ extern unsigned long last_read_time;
 extern unsigned long last_ir_send_time;
 extern unsigned long lastMeshReceivedTime;
 extern long mesh_rssi;
+
+#if defined(BOARD_VERSION_01)
+
+#define LED_MESH_SIGNAL_STATUS 2
+#define LED_AC_STATUS 15
+#define LED_MESH 2
+#define IR_PIN 4
+
+#define RX_PIN 16
+#define TX_PIN 17
+#define DIRECTION_PIN 32
+
+#elif defined(BOARD_VERSION_02)
+
+#define LED_MESH_SIGNAL_STATUS 2
+#define LED_AC_STATUS 15
+#define LED_MESH 2
+#define IR_PIN 4
+
+#define RX_PIN 16
+#define TX_PIN 17
+#define DIRECTION_PIN 32
+
+#elif defined(BOARD_VERSION_03)
+
+#define LED_MESH_SIGNAL_STATUS 11
+#define LED_AC_STATUS 21
+#define LED_MESH 14
+#define IR_PIN 45
+
+#define RX_PIN 5
+#define TX_PIN 4
+#define DIRECTION_PIN 13
+
+#elif defined(BOARD_VERSION_04)
+#define LED_MESH_SIGNAL_STATUS 11
+#define LED_AC_STATUS 21
+#define LED_MESH 14
+#define IR_PIN 45
+
+#define RX_PIN 18
+#define TX_PIN 17
+#define DIRECTION_PIN 13
+
+#endif
 
 #if defined(CARRIER_01)
 
