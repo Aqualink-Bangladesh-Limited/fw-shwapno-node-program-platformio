@@ -3,6 +3,7 @@
 #include "sensor_handler.h"
 #include "ir_handler.h"
 #include "led_handler.h"
+#include "debug_print.h"
 
 uint16_t arr[5] = {0, 0, 0, 5, 30};
 uint16_t sensor_data[2] = {0xFFFF, 0xFFFF};
@@ -44,9 +45,7 @@ void loop()
   if (currentMillis - last_print_time >= 5000)
   {
     last_print_time = currentMillis;
-    Serial.printf("AC Set Temp: %d  AC Status: %d  AC Hit: %d  AC Cooldown: %d\n", arr[0], arr[1], arr[2], arr[3]);
-    Serial.printf("Sensor Temp: %d  Humidity: %d\n", temperature, humidity);
-    Serial.printf("RSSI : %d\n", mesh_rssi);
+    printDebugInfo();
   }
 
   unsigned long sensor_read_interval = arr[4] * ONE_SECOND;
