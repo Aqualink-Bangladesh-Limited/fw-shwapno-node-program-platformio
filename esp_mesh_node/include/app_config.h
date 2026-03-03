@@ -32,6 +32,8 @@
 // #define BOARD_VERSION_03
 // #define BOARD_VERSION_04
 
+#define FIRMWARE_VERSION "20250918.1407"
+
 #define SLAVE_ID 1
 #define START_ADDRESS 0
 #define NUM_REGS 2
