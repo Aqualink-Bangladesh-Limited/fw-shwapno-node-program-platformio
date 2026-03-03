@@ -16,6 +16,8 @@ void printPacket(uint8_t *packet, int packetSize)
 }
 
 void printDebugInfo() {
+  Serial.printf("Firmware: %s\n", FIRMWARE_VERSION);
+
   // Print AC model configuration
   #if defined(CARRIER_01)
     Serial.print("AC: CARRIER_01 | ");
