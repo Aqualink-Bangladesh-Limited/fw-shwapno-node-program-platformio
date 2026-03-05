@@ -57,6 +57,9 @@ void setup() {
     mesh.onReceive(handleMeshReceive);
 
     printMeshInfo();
+    Serial.print("START_NODE: ");   Serial.println(START_NODE);
+    Serial.print("END_NODE: ");   Serial.println(END_NODE);
+
     Serial2.begin(115200, SERIAL_8N1, RX_PIN, TX_PIN);
 }
 

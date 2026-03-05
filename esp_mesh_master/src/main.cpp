@@ -90,6 +90,8 @@ void loop()
       wifiConnected = true;
 
       Serial.println("Connected to Wi-Fi!");
+      Serial.print("WiFi Name (SSID): ");
+      Serial.println(WiFi.SSID());
       Serial.print("IP Address: ");
       Serial.println(WiFi.localIP());
 
