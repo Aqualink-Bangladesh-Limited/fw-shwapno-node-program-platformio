@@ -104,6 +104,13 @@ extern uint16_t ac_on_raw[irRawLength];
 extern uint16_t ac_off_raw[irRawLength];
 extern uint16_t temp_array[13][irRawLength];
 
+#elif defined(CARRIER_02)
+
+#define irRawLength 197
+extern uint16_t ac_on_raw[irRawLength];
+extern uint16_t ac_off_raw[irRawLength];
+extern uint16_t temp_array[13][irRawLength];
+
 #elif defined(GENERAL_01)
 
 #define irRawLength 243
