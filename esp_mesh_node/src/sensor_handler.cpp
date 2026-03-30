@@ -26,8 +26,8 @@ bool modbus_callback(Modbus::ResultCode event, uint16_t, void *) {
     Serial.println("Modbus failed");
   }
 
-  temperature = sensor_data[1];
-  humidity = sensor_data[0];
+  temperature = sensor_data[0];
+  humidity = sensor_data[1];
   Serial.printf("Humidity: %d  Temperature: %d\n", humidity, temperature);
 
   return true;
