@@ -57,15 +57,24 @@ void printDebugInfo() {
 
   // Print board version configuration
   #if defined(BOARD_VERSION_01)
-    Serial.print("Board: V01\n");
+    Serial.print("Board: V01 | ");
   #elif defined(BOARD_VERSION_02)
-    Serial.print("Board: V02\n");
+    Serial.print("Board: V02 | ");
   #elif defined(BOARD_VERSION_03)
-    Serial.print("Board: V03\n");
+    Serial.print("Board: V03 | ");
   #elif defined(BOARD_VERSION_04)
-    Serial.print("Board: V04\n");
+    Serial.print("Board: V04 | ");
   #else
-    Serial.print("Board: NONE\n");
+    Serial.print("Board: NONE | ");
+  #endif
+
+  // Print sensor version configuration
+  #if defined(SENSOR_VERSION_01)
+    Serial.print("Sensor: V01\n");
+  #elif defined(SENSOR_VERSION_02)
+    Serial.print("Sensor: V02\n");
+  #else
+    Serial.print("Sensor: NONE\n");
   #endif
 
   Serial.printf("AC Set Temp: %d  AC Status: %d  AC Hit: %d  AC Cooldown: %d\n", arr[0], arr[1], arr[2], arr[3]);

@@ -27,10 +27,13 @@
 // #define CHIGO_01
 // #define QUNDA
 
-#define BOARD_VERSION_01
+// #define BOARD_VERSION_01
 // #define BOARD_VERSION_02
 // #define BOARD_VERSION_03
-// #define BOARD_VERSION_04
+#define BOARD_VERSION_04
+
+// #define SENSOR_VERSION_01
+#define SENSOR_VERSION_02
 
 #define FIRMWARE_VERSION "20250918.1407"
 
