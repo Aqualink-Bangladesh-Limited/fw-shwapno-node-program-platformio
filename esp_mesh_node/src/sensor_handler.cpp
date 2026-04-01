@@ -26,8 +26,14 @@ bool modbus_callback(Modbus::ResultCode event, uint16_t, void *) {
     Serial.println("Modbus failed");
   }
 
+#if defined(SENSOR_VERSION_01)
   temperature = sensor_data[1];
   humidity = sensor_data[0];
+#elif defined(SENSOR_VERSION_02)
+  temperature = sensor_data[0];
+  humidity = sensor_data[1];
+#endif
+
   Serial.printf("Humidity: %d  Temperature: %d\n", humidity, temperature);
 
   return true;

@@ -32,6 +32,9 @@
 // #define BOARD_VERSION_03
 #define BOARD_VERSION_04
 
+// #define SENSOR_VERSION_01
+#define SENSOR_VERSION_02
+
 #define FIRMWARE_VERSION "20250918.1407"
 
 #define SLAVE_ID 1
