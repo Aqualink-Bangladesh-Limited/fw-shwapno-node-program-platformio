@@ -16,7 +16,7 @@
 // #define GREE_02
 // #define MIDEA_01
 // #define MIDEA_02
-#define MIDEA_03
+// #define MIDEA_03
 // #define MIDEA_04
 // #define SAMSUNG_01
 // #define UNKNOWN_01
@@ -25,7 +25,7 @@
 // #define YORK_01
 // #define YORK_02
 // #define CHIGO_01
-// #define QUNDA
+#define QUNDA_01
 
 // #define BOARD_VERSION_01
 // #define BOARD_VERSION_02
@@ -214,7 +214,7 @@ extern uint16_t ac_on_raw[irRawLength];
 extern uint16_t ac_off_raw[irRawLength];
 extern uint16_t temp_array[13][irRawLength];
 
-#elif defined(QUNDA)
+#elif defined(QUNDA_01)
 
 #define irRawLength 83
 extern uint16_t ac_on_raw[irRawLength];

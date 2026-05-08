@@ -49,8 +49,8 @@ void printDebugInfo() {
     Serial.print("AC: YORK_02 | ");
   #elif defined(CHIGO_01)
     Serial.print("AC: CHIGO_01 | ");
-  #elif defined(QUNDA)
-    Serial.print("AC: QUNDA | ");
+  #elif defined(QUNDA_01)
+    Serial.print("AC: QUNDA_01 | ");
   #else
     Serial.print("AC: NONE | ");
   #endif
