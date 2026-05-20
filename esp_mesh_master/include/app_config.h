@@ -3,7 +3,7 @@
 #pragma once
 
 // WiFi credentials
-constexpr const char *WIFI_SSID = "shwapno_v2_mesh";
+constexpr const char *WIFI_SSID = "Aqualink_BD_LTD";
 constexpr const char *WIFI_PASSWORD = "aqualink@321";
 
 // Serial pins

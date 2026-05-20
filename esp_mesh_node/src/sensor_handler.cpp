@@ -1,5 +1,6 @@
 #include "sensor_handler.h"
 #include <ModbusRTU.h>
+#include "debug_log.h"
 
 ModbusRTU mb_RTU;
 
@@ -21,9 +22,9 @@ void modbus_task() {
 
 bool modbus_callback(Modbus::ResultCode event, uint16_t, void *) {
   if (event == Modbus::EX_SUCCESS) {
-    Serial.println("Modbus success");
+    debugLog("Modbus success");
   } else {
-    Serial.println("Modbus failed");
+    debugLog("Modbus failed");
   }
 
 #if defined(SENSOR_VERSION_01)
@@ -34,13 +35,13 @@ bool modbus_callback(Modbus::ResultCode event, uint16_t, void *) {
   humidity = sensor_data[1];
 #endif
 
-  Serial.printf("Humidity: %d  Temperature: %d\n", humidity, temperature);
+  debugLog("Humidity: %d  Temperature: %d", humidity, temperature);
 
   return true;
 }
 
 void ReadTemperatureHumidity() {
-  Serial.printf("Modbus request to address: %d\n", modbus_sensors[0].slave_address);
+  debugLog("Modbus request to address: %d", modbus_sensors[0].slave_address);
   mb_RTU.readHreg(
     modbus_sensors[0].slave_address,
     modbus_sensors[0].reg_address,

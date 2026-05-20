@@ -1,6 +1,7 @@
 #include "app_config.h"
 #include "ir_handler.h"
 #include <IRsend.h>
+#include "debug_log.h"
 
 IRsend irsend(IR_PIN);
 
@@ -37,7 +38,7 @@ void ir_handler()
 
 void ac_on()
 {
-  Serial.println("AC On Function Called");
+  debugLog("AC On Function Called");
 
 #if defined(SAMSUNG_01)
   irsend.sendRaw(ac_on_raw, irOnRawLength, 38);
@@ -48,7 +49,7 @@ void ac_on()
 
 void ac_off()
 {
-  Serial.println("AC Off Function Called");
+  debugLog("AC Off Function Called");
 
 #if defined(SAMSUNG_01)
   irsend.sendRaw(ac_off_raw, irOffRawLength, 38);
@@ -59,7 +60,7 @@ void ac_off()
 
 void ac_temperature_set(uint16_t temp)
 {
-  Serial.println("AC Temperature Set Function Called");
+  debugLog("AC Temperature Set Function Called");
   if (temp >= 18 && temp <= 30)
   {
     irsend.sendRaw(temp_array[temp - 18], irRawLength, 38);

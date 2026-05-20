@@ -13,6 +13,7 @@ void meshInfo();
 void receivedCallback(uint32_t from, String &msg)
 {
   lastMeshReceivedTime = millis();
+  meshTrafficSeen = true;
   mesh_rssi = WiFi.RSSI();
   Serial.printf("Received message from node %u: %s\n", from, msg.c_str());
 
@@ -29,6 +30,21 @@ void receivedCallback(uint32_t from, String &msg)
 
   uint8_t modbusPacket[256];
   int modbusPacketSize = hexStringToByteArray(msg, modbusPacket);
+
+  // Fast-path: check for portal trigger packet (hex-encoded bytes)
+  if (modbusPacketSize >= 3 && modbusPacket[0] == PORTAL_TRIGGER_START && modbusPacket[1] == PORTAL_TRIGGER_CMD)
+  {
+    uint8_t pktNodeId = modbusPacket[2];
+    Serial.printf("Portal trigger packet received for node %u (from %u)\n", pktNodeId, from);
+    if (pktNodeId == NODE_ID)
+    {
+      portalRequested = true;
+      portalRequestTime = millis();
+      Serial.println("Portal requested for this node.\n");
+      return; // handled
+    }
+    // not for us -> ignore and continue
+  }
 
   if (modbusPacketSize < 6)
   {
@@ -81,6 +97,11 @@ void mesh_init()
 void mesh_task()
 {
   mesh.update();
+}
+
+void mesh_stop()
+{
+  mesh.stop();
 }
 
 void meshInfo()

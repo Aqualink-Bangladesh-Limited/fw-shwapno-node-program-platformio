@@ -8,7 +8,7 @@
 #define MESH_PORT 5551
 #define MESH_CHANNEL 1
 
-#define NODE_ID 07
+#define NODE_ID 04
 
 // #define CARRIER_01
 // #define GENERAL_01
@@ -48,6 +48,16 @@
 extern uint16_t arr[5];
 extern uint16_t sensor_data[2];
 extern uint16_t temperature, humidity;
+#define PORTAL_PASSWORD "aqualink@321"
+#define PORTAL_TIMEOUT_MS (120 * ONE_SECOND)
+#define PORTAL_AP_IP 0xC0A80001 // 192.168.4.1 in hex
+#define PORTAL_TRIGGER_START 0xAA
+#define PORTAL_TRIGGER_CMD 0x50
+
+extern bool portalRequested;
+extern unsigned long portalRequestTime;
+extern bool portalBootOnNextBoot;
+extern bool meshTrafficSeen;
 extern bool flag;
 extern unsigned long last_read_time;
 extern unsigned long last_ir_send_time;
