@@ -32,7 +32,7 @@ void setup()
 
   // Disable Arduino default 5s idle WDT before long mesh/WiFi setup.
   esp_task_wdt_deinit();
-  Serial.println("\n[boot] setup start");
+  debugLog("boot: setup start");
 
   // Post-OTA: re-enter portal for verification (before mesh starts).
   Preferences prefs;
@@ -49,7 +49,7 @@ void setup()
     prefs.end();
   }
 
-  Serial.println("[boot] modbus_init");
+  debugLog("boot: modbus_init");
   modbus_init();
 
   pinMode(LED_MESH_SIGNAL_STATUS, OUTPUT);
@@ -58,16 +58,16 @@ void setup()
 
   if (portalBootOnNextBoot)
   {
-    Serial.println("[boot] portal mode (post-OTA)");
+    debugLog("boot: portal mode (post-OTA)");
     ir_init();
     enterPortalMode(portalStoredNodeId);
   }
   else
   {
-    Serial.println("[boot] mesh_init");
+    debugLog("boot: mesh_init");
     mesh_init();
 
-    Serial.println("[boot] ir_init");
+    debugLog("boot: ir_init");
     ir_init();
 
     lastMeshReceivedTime = millis();
@@ -79,7 +79,7 @@ void setup()
   esp_task_wdt_add(NULL);
   debugLog("Watchdog timer set for %d seconds", WATCHDOG_TIMEOUT);
 
-  Serial.println("[boot] setup done");
+  debugLog("boot: setup done");
 }
 
 void loop()
@@ -97,27 +97,30 @@ void loop()
   }
 
   unsigned long currentMillis = millis();
-  static unsigned long last_print_time = 0;
 
-  if (currentMillis - last_print_time >= 5000)
+  if (!isPortalActive())
   {
-    last_print_time = currentMillis;
-    printDebugInfo();
-  }
+    static unsigned long last_print_time = 0;
+    if (currentMillis - last_print_time >= 5000)
+    {
+      last_print_time = currentMillis;
+      printDebugInfo();
+    }
 
-  unsigned long sensor_read_interval = arr[4] * ONE_SECOND;
-  if (currentMillis - last_read_time >= sensor_read_interval)
-  {
-    last_read_time = currentMillis;
-    ReadTemperatureHumidity();
-  }
+    unsigned long sensor_read_interval = arr[4] * ONE_SECOND;
+    if (currentMillis - last_read_time >= sensor_read_interval)
+    {
+      last_read_time = currentMillis;
+      ReadTemperatureHumidity();
+    }
 
-  unsigned long ir_cooldown_time = arr[3] * ONE_SECOND;
-  if (flag && (currentMillis - last_ir_send_time >= ir_cooldown_time))
-  {
-    last_ir_send_time = currentMillis;
-    ir_handler();
-    flag = false;
+    unsigned long ir_cooldown_time = arr[3] * ONE_SECOND;
+    if (flag && (currentMillis - last_ir_send_time >= ir_cooldown_time))
+    {
+      last_ir_send_time = currentMillis;
+      ir_handler();
+      flag = false;
+    }
   }
 
   led_handler();

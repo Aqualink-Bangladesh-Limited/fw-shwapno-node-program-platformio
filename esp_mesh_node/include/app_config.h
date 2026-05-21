@@ -50,9 +50,12 @@ extern uint16_t sensor_data[2];
 extern uint16_t temperature, humidity;
 #define PORTAL_PASSWORD "aqualink@321"
 #define PORTAL_TIMEOUT_MS (120 * ONE_SECOND)
-#define PORTAL_AP_IP 0xC0A80001 // 192.168.4.1 in hex
-#define PORTAL_TRIGGER_START 0xAA
-#define PORTAL_TRIGGER_CMD 0x50
+/* AP address 192.168.4.1 (use IPAddress in portal_handler, not raw hex) */
+#define PORTAL_AP_IP_1 192
+#define PORTAL_AP_IP_2 168
+#define PORTAL_AP_IP_3 4
+#define PORTAL_AP_IP_4 1
+#define PORTAL_TRIGGER_FC 0x41 /* MBAP: ... 00 02 <nodeId> 41 → start portal */
 
 extern bool portalRequested;
 extern unsigned long portalRequestTime;

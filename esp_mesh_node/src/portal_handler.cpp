@@ -19,35 +19,37 @@ void portal_init()
   // nothing to do yet; keep as placeholder for future init
 }
 
-static IPAddress ipFromMacro(uint32_t ip)
-{
-  return IPAddress((ip >> 24) & 0xFF, (ip >> 16) & 0xFF, (ip >> 8) & 0xFF, ip & 0xFF);
-}
-
 void enterPortalMode(uint8_t nodeId)
 {
   if (portalActive)
+  {
+    portal_touchActivity();
     return;
+  }
 
   activeNodeId = nodeId;
+  portal_touchActivity();
 
   // Stop mesh participation
   mesh_stop();
   delay(300);
 
-  // Ensure WiFi is reset
+  // Clean WiFi state before AP (mesh/AsyncTCP can leave STA active)
   WiFi.disconnect(true);
+  WiFi.mode(WIFI_OFF);
+  delay(100);
   WiFi.mode(WIFI_AP);
+  WiFi.setSleep(false);
 
-  IPAddress apIP = ipFromMacro(PORTAL_AP_IP);
-  IPAddress netmask(255, 255, 255, 0);
+  const IPAddress apIP(PORTAL_AP_IP_1, PORTAL_AP_IP_2, PORTAL_AP_IP_3, PORTAL_AP_IP_4);
+  const IPAddress netmask(255, 255, 255, 0);
   WiFi.softAPConfig(apIP, apIP, netmask);
 
   char ssid[32];
-  snprintf(ssid, sizeof(ssid), "OTA-%u", (unsigned int)activeNodeId);
-  WiFi.softAP(ssid, PORTAL_PASSWORD);
+  snprintf(ssid, sizeof(ssid), "OTA-NODE-%u", (unsigned int)activeNodeId);
+  WiFi.softAP(ssid, PORTAL_PASSWORD, 1, 0, 4);
 
-  // Start DNS server to capture captive portal redirects
+  // Captive portal: resolve all DNS names to the AP IP
   dnsServer.start(53, "*", apIP);
 
   // Start web server for portal
@@ -88,11 +90,17 @@ void portal_task()
     return;
 
   dnsServer.processNextRequest();
+  portalWeb_poll();
 
-  // Enforce idle timeout
-  if (millis() - lastActivity >= PORTAL_TIMEOUT_MS)
+  /* Any WiFi client or open WebSocket keeps the session alive */
+  if (WiFi.softAPgetStationNum() > 0 || portalWeb_clientCount() > 0)
+    portal_touchActivity();
+
+  unsigned long now = millis();
+  unsigned long idleMs = now - lastActivity;
+  if (idleMs >= PORTAL_TIMEOUT_MS)
   {
-    debugLog("Portal idle timeout reached. Rebooting.");
+    debugLog("Portal idle timeout (%lu s). Rebooting.", idleMs / 1000);
     ESP.restart();
   }
 }

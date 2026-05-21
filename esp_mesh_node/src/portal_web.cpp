@@ -165,6 +165,46 @@ static String buildPortalPage()
 )rawliteral";
 }
 
+static const char PORTAL_HOME_URL[] = "http://192.168.4.1/";
+
+static void attachCaptivePortalRoutes(AsyncWebServer *srv)
+{
+  auto redirectHome = [](AsyncWebServerRequest *request) {
+    portal_touchActivity();
+    request->redirect(PORTAL_HOME_URL);
+  };
+
+  const char *captivePaths[] = {
+      "/generate_204",
+      "/gen_204",
+      "/hotspot-detect.html",
+      "/library/test/success.html",
+      "/connecttest.txt",
+      "/ncsi.txt",
+      "/redirect",
+      "/wpad.dat",
+      "/fwlink",
+      "/success.txt",
+      "/canonical.html",
+  };
+
+  for (const char *path : captivePaths)
+  {
+    srv->on(path, HTTP_GET, redirectHome);
+    srv->on(path, HTTP_HEAD, redirectHome);
+  }
+
+  srv->onNotFound([](AsyncWebServerRequest *request) {
+    portal_touchActivity();
+    if (request->method() == HTTP_OPTIONS)
+    {
+      request->send(200);
+      return;
+    }
+    request->redirect(PORTAL_HOME_URL);
+  });
+}
+
 void portalWeb_init()
 {
   // placeholder
@@ -184,14 +224,21 @@ void portalWeb_start()
   ws = new AsyncWebSocket("/debug");
 
   ws->onEvent([](AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType type, void *arg, uint8_t *data, size_t len) {
-    if (type == WS_EVT_CONNECT)
+    switch (type)
     {
+    case WS_EVT_CONNECT:
+    case WS_EVT_DATA:
+    case WS_EVT_PONG:
       portal_touchActivity();
-      debugLog("WebSocket client connected: %u", client->id());
-    }
-    else if (type == WS_EVT_DISCONNECT)
-    {
+      if (type == WS_EVT_CONNECT)
+        debugLog("WebSocket client connected: %u", client->id());
+      break;
+    case WS_EVT_DISCONNECT:
+      portal_touchActivity();
       debugLog("WebSocket client disconnected: %u", client->id());
+      break;
+    default:
+      break;
     }
   });
 
@@ -304,12 +351,27 @@ void portalWeb_start()
     }
   });
 
+  attachCaptivePortalRoutes(server);
+
   server->begin();
 
   // register debug sender
   registerDebugSender(notifyAllClients);
 
   debugLog("Portal web server started");
+}
+
+uint8_t portalWeb_clientCount()
+{
+  if (!ws)
+    return 0;
+  return ws->count();
+}
+
+void portalWeb_poll()
+{
+  if (ws)
+    ws->cleanupClients();
 }
 
 void portalWeb_stop()

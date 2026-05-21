@@ -4,6 +4,7 @@
 #include "request_handler.h"
 #include "data_type_conversion.h"
 #include "debug_print.h"
+#include "debug_log.h"
 
 painlessMesh mesh;
 long mesh_rssi = 0;
@@ -15,7 +16,7 @@ void receivedCallback(uint32_t from, String &msg)
   lastMeshReceivedTime = millis();
   meshTrafficSeen = true;
   mesh_rssi = WiFi.RSSI();
-  Serial.printf("Received message from node %u: %s\n", from, msg.c_str());
+  debugLog("Received message from node %u: %s", from, msg.c_str());
 
   if (msg.startsWith("SLAVE_ID_REQUEST:"))
   {
@@ -31,24 +32,25 @@ void receivedCallback(uint32_t from, String &msg)
   uint8_t modbusPacket[256];
   int modbusPacketSize = hexStringToByteArray(msg, modbusPacket);
 
-  // Fast-path: check for portal trigger packet (hex-encoded bytes)
-  if (modbusPacketSize >= 3 && modbusPacket[0] == PORTAL_TRIGGER_START && modbusPacket[1] == PORTAL_TRIGGER_CMD)
+  /* Portal / OTA: FC 0x41 in MBAP frame (after IP:port prefix) */
+  if (modbusPacketSize >= 14 &&
+      modbusPacket[8] == 0 && modbusPacket[9] == 0 &&
+      modbusPacket[10] == 0 && modbusPacket[11] == 2 &&
+      modbusPacket[13] == PORTAL_TRIGGER_FC)
   {
-    uint8_t pktNodeId = modbusPacket[2];
-    Serial.printf("Portal trigger packet received for node %u (from %u)\n", pktNodeId, from);
-    if (pktNodeId == NODE_ID)
+    uint8_t targetNode = modbusPacket[12];
+    if (targetNode == NODE_ID)
     {
       portalRequested = true;
       portalRequestTime = millis();
-      Serial.println("Portal requested for this node.\n");
-      return; // handled
+      debugLog("Portal requested for this node.");
     }
-    // not for us -> ignore and continue
+    return;
   }
 
   if (modbusPacketSize < 6)
   {
-    Serial.println("Invalid packet size. Discarding.");
+    debugLog("Invalid packet size. Discarding.");
     return;
   }
 
@@ -79,7 +81,7 @@ void receivedCallback(uint32_t from, String &msg)
     String responseHexStr = byteArrayToHexString(responsePacket, len + 6);
     responseHexStr.toUpperCase();
 
-    Serial.print("Response Hex String: ");
+    debugLog("Response hex:");
     printPacket(responsePacket, len + 6);
 
     mesh.sendSingle(from, responseHexStr);
@@ -106,17 +108,11 @@ void mesh_stop()
 
 void meshInfo()
 {
-  Serial.println("Mesh Network Details:");
-  Serial.print("Prefix: ");
-  Serial.println(MESH_PREFIX);
-  Serial.print("Password: ");
-  Serial.println(MESH_PASSWORD);
-  Serial.print("Port: ");
-  Serial.println(MESH_PORT);
-  Serial.print("Channel: ");
-  Serial.println(MESH_CHANNEL);
-  Serial.print("Node ID: ");
-  Serial.println(NODE_ID);
-  Serial.print("Mesh ID: ");
-  Serial.println(mesh.getNodeId());
+  debugLog("Mesh Network Details:");
+  debugLog("Prefix: %s", MESH_PREFIX);
+  debugLog("Password: %s", MESH_PASSWORD);
+  debugLog("Port: %u", (unsigned)MESH_PORT);
+  debugLog("Channel: %u", (unsigned)MESH_CHANNEL);
+  debugLog("Node ID: %u", (unsigned)NODE_ID);
+  debugLog("Mesh ID: %u", mesh.getNodeId());
 }
