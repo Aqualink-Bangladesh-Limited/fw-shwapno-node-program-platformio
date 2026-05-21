@@ -5,8 +5,8 @@
 #include "led_handler.h"
 #include "debug_print.h"
 #include "debug_log.h"
-// #include <Preferences.h>
-// #include "portal_handler.h"
+#include <Preferences.h>
+#include "portal_handler.h"
 
 uint16_t arr[5] = {0, 0, 0, 5, 30};
 uint16_t sensor_data[2] = {0xFFFF, 0xFFFF};
@@ -30,10 +30,24 @@ void setup()
   Serial.begin(115200);
   delay(500);
 
-  // Arduino ESP32 enables a 5s idle task WDT by default (CONFIG_ESP_TASK_WDT_TIMEOUT_S).
-  // mesh_init()/WiFi can exceed that in setup(); panic shows as RTC_SW_SYS_RST boot loop.
+  // Disable Arduino default 5s idle WDT before long mesh/WiFi setup.
   esp_task_wdt_deinit();
   Serial.println("\n[boot] setup start");
+
+  // Post-OTA: re-enter portal for verification (before mesh starts).
+  Preferences prefs;
+  if (prefs.begin("portal", false))
+  {
+    bool pb = prefs.getBool("portalBoot", false);
+    if (pb)
+    {
+      portalBootOnNextBoot = true;
+      uint32_t nid = prefs.getUInt("nodeId", NODE_ID);
+      portalStoredNodeId = (uint8_t)(nid & 0xFF);
+      prefs.putBool("portalBoot", false);
+    }
+    prefs.end();
+  }
 
   Serial.println("[boot] modbus_init");
   modbus_init();
@@ -42,49 +56,45 @@ void setup()
   pinMode(LED_AC_STATUS, OUTPUT);
   pinMode(LED_MESH, OUTPUT);
 
-  Serial.println("[boot] mesh_init");
-  mesh_init();
+  if (portalBootOnNextBoot)
+  {
+    Serial.println("[boot] portal mode (post-OTA)");
+    ir_init();
+    enterPortalMode(portalStoredNodeId);
+  }
+  else
+  {
+    Serial.println("[boot] mesh_init");
+    mesh_init();
 
-  Serial.println("[boot] ir_init");
-  ir_init();
+    Serial.println("[boot] ir_init");
+    ir_init();
 
-  lastMeshReceivedTime = millis();
+    lastMeshReceivedTime = millis();
+    portal_init();
+  }
 
-  // // Read NVS early to detect post-OTA portal boot
-  // Preferences prefs;
-  // if (prefs.begin("portal", false)) {
-  //   bool pb = prefs.getBool("portalBoot", false);
-  //   if (pb) {
-  //     portalBootOnNextBoot = true;
-  //     uint32_t nid = prefs.getUInt("nodeId", NODE_ID);
-  //     portalStoredNodeId = (uint8_t)(nid & 0xFF);
-  //     // clear the flag immediately so we don't loop back into portal on subsequent boots
-  //     prefs.putBool("portalBoot", false);
-  //   }
-  //   prefs.end();
-  // }
-
-  // Optional app watchdog (longer than the old 5s framework default):
-  // esp_task_wdt_init(WATCHDOG_TIMEOUT, true);
-  // esp_task_wdt_add(NULL);
-  // debugLog("Watchdog timer set for %d seconds", WATCHDOG_TIMEOUT);
-
-  // portal_init();
-
-  // // If booted after OTA, enter portal mode for verification
-  // if (portalBootOnNextBoot)
-  // {
-  // }
+  // App watchdog (30s) after setup; default 5s WDT stays off until here.
+  esp_task_wdt_init(WATCHDOG_TIMEOUT, true);
+  esp_task_wdt_add(NULL);
+  debugLog("Watchdog timer set for %d seconds", WATCHDOG_TIMEOUT);
 
   Serial.println("[boot] setup done");
 }
 
 void loop()
 {
-  //esp_task_wdt_reset();
+  esp_task_wdt_reset();
   modbus_task();
-  mesh_task();
-  //portal_task();
+
+  if (isPortalActive())
+  {
+    portal_task();
+  }
+  else
+  {
+    mesh_task();
+  }
 
   unsigned long currentMillis = millis();
   static unsigned long last_print_time = 0;
@@ -112,16 +122,16 @@ void loop()
 
   led_handler();
 
-  // If a portal was requested via mesh, enter portal mode
-  // if (portalRequested && !isPortalActive())
-  // {
-  //   portalRequested = false;
-  //   enterPortalMode(NODE_ID);
-  // }
+  if (!isPortalActive() && portalRequested)
+  {
+    portalRequested = false;
+    enterPortalMode(NODE_ID);
+  }
 
-  // if (meshTrafficSeen && currentMillis - lastMeshReceivedTime >= RESTART_TIMEOUT)
-  // {
-  //   debugLog("Mesh disconnected for 15 minutes. ESP Restarting.....");
-  //   ESP.restart();
-  // }
+  if (!isPortalActive() && meshTrafficSeen &&
+      currentMillis - lastMeshReceivedTime >= RESTART_TIMEOUT)
+  {
+    debugLog("Mesh disconnected for 15 minutes. ESP Restarting.....");
+    ESP.restart();
+  }
 }

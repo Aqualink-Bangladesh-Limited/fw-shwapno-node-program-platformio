@@ -292,7 +292,7 @@ void portalWeb_start()
         }
         request->send(200, "text/plain", "Flash complete, rebooting...");
         delay(200);
-        // ESP.restart(); // debug: keep disabled while tracing reboot loop
+        ESP.restart();
       }
       else
       {

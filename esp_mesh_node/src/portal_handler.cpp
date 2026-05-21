@@ -1,5 +1,6 @@
 #include <WiFi.h>
 #include <DNSServer.h>
+#include <Preferences.h>
 #include "portal_handler.h"
 #include "app_config.h"
 #include "mesh_handler.h"
@@ -72,7 +73,13 @@ void exitPortalMode()
   // stop web server
   portalWeb_stop();
   debugLog("Exiting PORTAL MODE, restarting...");
-  // ESP.restart(); // debug: keep disabled while tracing reboot loop
+  Preferences prefs;
+  if (prefs.begin("portal", false))
+  {
+    prefs.putBool("portalBoot", false);
+    prefs.end();
+  }
+  ESP.restart();
 }
 
 void portal_task()
@@ -86,7 +93,7 @@ void portal_task()
   if (millis() - lastActivity >= PORTAL_TIMEOUT_MS)
   {
     debugLog("Portal idle timeout reached. Rebooting.");
-    // ESP.restart(); // debug: keep disabled while tracing reboot loop
+    ESP.restart();
   }
 }
 
