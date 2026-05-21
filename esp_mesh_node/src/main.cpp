@@ -85,42 +85,36 @@ void setup()
 void loop()
 {
   esp_task_wdt_reset();
+  portal_process_deferred_actions();
   modbus_task();
 
   if (isPortalActive())
-  {
     portal_task();
-  }
   else
-  {
     mesh_task();
-  }
 
   unsigned long currentMillis = millis();
+  static unsigned long last_print_time = 0;
 
-  if (!isPortalActive())
+  if (currentMillis - last_print_time >= 5000)
   {
-    static unsigned long last_print_time = 0;
-    if (currentMillis - last_print_time >= 5000)
-    {
-      last_print_time = currentMillis;
-      printDebugInfo();
-    }
+    last_print_time = currentMillis;
+    printDebugInfo();
+  }
 
-    unsigned long sensor_read_interval = arr[4] * ONE_SECOND;
-    if (currentMillis - last_read_time >= sensor_read_interval)
-    {
-      last_read_time = currentMillis;
-      ReadTemperatureHumidity();
-    }
+  unsigned long sensor_read_interval = arr[4] * ONE_SECOND;
+  if (currentMillis - last_read_time >= sensor_read_interval)
+  {
+    last_read_time = currentMillis;
+    ReadTemperatureHumidity();
+  }
 
-    unsigned long ir_cooldown_time = arr[3] * ONE_SECOND;
-    if (flag && (currentMillis - last_ir_send_time >= ir_cooldown_time))
-    {
-      last_ir_send_time = currentMillis;
-      ir_handler();
-      flag = false;
-    }
+  unsigned long ir_cooldown_time = arr[3] * ONE_SECOND;
+  if (flag && (currentMillis - last_ir_send_time >= ir_cooldown_time))
+  {
+    last_ir_send_time = currentMillis;
+    ir_handler();
+    flag = false;
   }
 
   led_handler();

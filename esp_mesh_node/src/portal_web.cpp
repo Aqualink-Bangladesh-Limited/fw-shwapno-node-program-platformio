@@ -7,29 +7,44 @@
 #include <Update.h>
 #include <Preferences.h>
 #include <esp_task_wdt.h>
+#include <cstring>
 
 static AsyncWebServer *server = nullptr;
 static AsyncWebSocket *ws = nullptr;
 static bool otaInProgress = false;
+static bool otaFailed = false;
 static size_t otaTotalBytes = 0;
 static size_t otaWrittenBytes = 0;
-static String otaMessage = "Idle";
+static char otaMessage[64] = "Idle";
 
-static void notifyAllClients(const char *line)
+bool portalWeb_isOtaInProgress()
 {
-  if (!ws)
+  return otaInProgress;
+}
+
+static void setOtaMessage(const char *msg)
+{
+  strncpy(otaMessage, msg, sizeof(otaMessage) - 1);
+  otaMessage[sizeof(otaMessage) - 1] = '\0';
+}
+
+static void pushLogToWeb(const char *line)
+{
+  if (!line || otaInProgress || !ws || ws->count() == 0)
     return;
   ws->textAll(line);
 }
 
-static String escapeJson(const String &value)
+static String escapeJson(const char *value)
 {
   String escaped;
-  escaped.reserve(value.length() + 16);
+  if (!value)
+    return escaped;
+  escaped.reserve(strlen(value) + 16);
 
-  for (size_t i = 0; i < value.length(); i++)
+  for (size_t i = 0; value[i] != '\0'; i++)
   {
-    char c = value.charAt(i);
+    char c = value[i];
     switch (c)
     {
     case '\\':
@@ -57,36 +72,24 @@ static String escapeJson(const String &value)
 
 static String buildStatusJson()
 {
-  String json = "{";
-  json += "\"portalActive\":";
-  json += isPortalActive() ? "true" : "false";
-  json += ",\"otaInProgress\":";
-  json += otaInProgress ? "true" : "false";
-  json += ",\"otaTotalBytes\":";
-  json += String((unsigned long)otaTotalBytes);
-  json += ",\"otaWrittenBytes\":";
-  json += String((unsigned long)otaWrittenBytes);
-  json += ",\"otaPercent\":";
-  if (otaTotalBytes > 0)
-  {
-    json += String((unsigned long)((otaWrittenBytes * 100UL) / otaTotalBytes));
-  }
-  else
-  {
-    json += "0";
-  }
-  json += ",\"otaMessage\":\"";
-  json += escapeJson(otaMessage);
-  json += "\",\"logCountHint\":";
-  String logs = debugLogGetBuffer();
-  json += String((unsigned long)logs.length());
-  json += "}";
-  return json;
+  const unsigned pct = (otaTotalBytes > 0) ? (unsigned)((otaWrittenBytes * 100UL) / otaTotalBytes) : 0;
+  const String msgEsc = escapeJson(otaMessage);
+  char buf[320];
+  snprintf(buf, sizeof(buf),
+           "{\"portalActive\":%s,\"otaInProgress\":%s,\"otaTotalBytes\":%u,"
+           "\"otaWrittenBytes\":%u,\"otaPercent\":%u,\"otaMessage\":\"%s\","
+           "\"logCountHint\":%u}",
+           isPortalActive() ? "true" : "false",
+           otaInProgress ? "true" : "false",
+           (unsigned)otaTotalBytes,
+           (unsigned)otaWrittenBytes,
+           pct,
+           msgEsc.c_str(),
+           (unsigned)debugLogGetBufferLength());
+  return String(buf);
 }
 
-static String buildPortalPage()
-{
-  return R"rawliteral(
+static const char PORTAL_HTML[] PROGMEM = R"rawliteral(
 <!doctype html>
 <html lang='en'>
 <head>
@@ -102,7 +105,7 @@ static String buildPortalPage()
     <div class='hero'>
       <div class='title'>
         <h1>OTA Portal</h1>
-        <p>Clean status view for firmware upload, live logs, and progress tracking. The dashboard refreshes itself every 5 seconds while keeping a live WebSocket stream open.</p>
+        <p>Firmware upload and live device logs (WebSocket + 2s polling).</p>
       </div>
       <div class='badge'><i></i><span id='connText'>Connecting...</span></div>
     </div>
@@ -126,7 +129,7 @@ static String buildPortalPage()
               <button class='btn' id='uploadBtn' onclick='uploadFirmware()'>Upload firmware</button>
               <button class='btn secondary' onclick='refreshDashboard(true)'>Refresh now</button>
               <button class='btn danger' onclick='clearLogs()'>Clear logs</button>
-              <button class='btn secondary' onclick='location.href="/exit"'>Exit portal</button>
+              <button class='btn secondary' onclick='exitPortal()'>Exit portal</button>
             </div>
             <div class='muted'>Firmware upload is streamed directly to flash. The page keeps refreshing log state every 5 seconds so you can leave it open during long updates.</div>
           </div>
@@ -136,7 +139,7 @@ static String buildPortalPage()
       <section class='card'>
         <div class='hd'><h2>Live Logs</h2><span id='logSummary'>0 chars</span></div>
         <div class='logbox' id='logBox'></div>
-        <div class='footer'>Recent logs are cached on-device and pushed live over WebSocket. Use <strong>Clear logs</strong> to reset the view.</div>
+        <div class='footer'>Live logs via WebSocket; full history refreshed every 2 seconds. Use <strong>Clear logs</strong> to reset.</div>
       </section>
     </div>
   </div>
@@ -148,22 +151,22 @@ static String buildPortalPage()
     const logBox=document.getElementById('logBox');
 
     function setText(id,value){document.getElementById(id).textContent=value;}
-    function appendLog(line){const row=document.createElement('div');row.className='logline';row.textContent=line;logBox.appendChild(row);while(logBox.children.length>600){logBox.removeChild(logBox.firstElementChild);}if(autoScroll){logBox.scrollTop=logBox.scrollHeight;}}
+    function appendLog(line){const row=document.createElement('div');row.className='logline';row.textContent=line;logBox.appendChild(row);while(logBox.children.length>400){logBox.removeChild(logBox.firstElementChild);}if(autoScroll){logBox.scrollTop=logBox.scrollHeight;}}
     function renderLogs(text){logBox.innerHTML='';if(!text){appendLog('No logs yet.');return;}text.split(/\n+/).forEach(line=>{if(line.trim().length)appendLog(line);});}
     function updateState(state){setText('portalState',state.portalActive?'Active':'Inactive');setText('otaPercent',(state.otaPercent||0)+'%');setText('otaBytes',(state.otaWrittenBytes||0)+' / '+(state.otaTotalBytes||0));setText('otaMessage',state.otaMessage||'Idle');setText('statusText',state.otaInProgress?'OTA in progress':'Ready');document.getElementById('progressBar').style.width=(state.otaPercent||0)+'%';document.getElementById('progressBar').style.opacity=state.otaInProgress?1:.75;document.getElementById('uploadBtn').disabled=!!state.otaInProgress;document.getElementById('logSummary').textContent=(state.logCountHint||0)+' chars cached';}
     async function refreshDashboard(forceLogs){try{const status=await fetch('/status',{cache:'no-store'}).then(r=>r.json());updateState(status);if(forceLogs||!window._logLoaded){const logs=await fetch('/logs',{cache:'no-store'}).then(r=>r.text());renderLogs(logs);window._logLoaded=true;}}catch(e){setText('connText','Offline');}}
     async function clearLogs(){await fetch('/logs/clear',{method:'POST'});window._logLoaded=false;refreshDashboard(true);}
-    function uploadFirmware(){const file=document.getElementById('file').files[0];if(!file){alert('Pick a firmware file first.');return;}const xhr=new XMLHttpRequest();xhr.open('POST','/update',true);xhr.upload.onprogress=function(e){if(e.lengthComputable){const pct=Math.round((e.loaded/e.total)*100);setText('otaPercent',pct+'%');setText('otaBytes',e.loaded+' / '+e.total);document.getElementById('progressBar').style.width=pct+'%';setText('otaMessage','Uploading firmware... '+pct+'%');setText('statusText','Uploading');}};xhr.onreadystatechange=function(){if(xhr.readyState===4){setText('otaMessage',xhr.responseText||'Upload finished.');refreshDashboard(true);}};xhr.send(file);setText('statusText','Uploading');setText('connText','Uploading...');}
-    function connectWs(){try{ws&&ws.close();ws=new WebSocket((location.protocol==='https:'?'wss://':'ws://')+location.host+'/debug');ws.onopen=function(){setText('connText','Live connected');};ws.onclose=function(){setText('connText','Reconnecting...');setTimeout(connectWs,1500);};ws.onerror=function(){setText('connText','Reconnect pending');};ws.onmessage=function(e){appendLog(e.data);};}catch(e){setText('connText','Live unavailable');}}
+    async function exitPortal(){try{const r=await fetch('/exit');alert(await r.text());}catch(e){alert('Exit failed');}}
+    function connectWs(){if(ws&&(ws.readyState===WebSocket.OPEN||ws.readyState===WebSocket.CONNECTING))return;try{ws=new WebSocket((location.protocol==='https:'?'wss://':'ws://')+location.host+'/debug');ws.onopen=function(){setText('connText','Live logs');};ws.onclose=function(){setText('connText','Polling only');ws=null;};ws.onerror=function(){setText('connText','Polling only');};ws.onmessage=function(e){appendLog(e.data);};}catch(e){setText('connText','Polling only');}}
+    function uploadFirmware(){const file=document.getElementById('file').files[0];if(!file){alert('Pick a firmware file first.');return;}if(refreshTimer){clearInterval(refreshTimer);refreshTimer=null;}const fd=new FormData();fd.append('update',file,file.name);const xhr=new XMLHttpRequest();xhr.open('POST','/update',true);xhr.timeout=600000;xhr.upload.onprogress=function(e){if(e.lengthComputable){const pct=Math.round((e.loaded/e.total)*100);setText('otaPercent',pct+'%');setText('otaBytes',e.loaded+' / '+e.total);document.getElementById('progressBar').style.width=pct+'%';setText('otaMessage','Uploading firmware... '+pct+'%');setText('statusText','Uploading');setText('connText','Uploading...');}};xhr.onerror=function(){setText('otaMessage','Upload failed (network error)');setText('connText','Upload failed');refreshTimer=setInterval(function(){refreshDashboard(true);},2000);connectWs();};xhr.onreadystatechange=function(){if(xhr.readyState===4){setText('otaMessage',xhr.responseText||'Upload finished.');refreshDashboard(true);if(!refreshTimer){refreshTimer=setInterval(function(){refreshDashboard(true);},2000);}connectWs();}};xhr.send(fd);setText('statusText','Uploading');}
     logBox.addEventListener('scroll',function(){autoScroll=logBox.scrollTop+logBox.clientHeight>=logBox.scrollHeight-20;});
     connectWs();
     refreshDashboard(true);
-    refreshTimer=setInterval(function(){refreshDashboard(false);},5000);
+    refreshTimer=setInterval(function(){refreshDashboard(true);},2000);
   </script>
 </body>
 </html>
 )rawliteral";
-}
 
 static const char PORTAL_HOME_URL[] = "http://192.168.4.1/";
 
@@ -201,7 +204,10 @@ static void attachCaptivePortalRoutes(AsyncWebServer *srv)
       request->send(200);
       return;
     }
-    request->redirect(PORTAL_HOME_URL);
+    if (request->method() == HTTP_GET || request->method() == HTTP_HEAD)
+      request->redirect(PORTAL_HOME_URL);
+    else
+      request->send(404, "text/plain", "Not found");
   });
 }
 
@@ -216,53 +222,64 @@ void portalWeb_start()
     return;
 
   otaInProgress = false;
+  otaFailed = false;
   otaTotalBytes = 0;
   otaWrittenBytes = 0;
-  otaMessage = "Idle";
+  setOtaMessage("Idle");
 
   server = new AsyncWebServer(80);
   ws = new AsyncWebSocket("/debug");
-
-  ws->onEvent([](AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType type, void *arg, uint8_t *data, size_t len) {
-    switch (type)
+  ws->onEvent([](AsyncWebSocket * /*server*/, AsyncWebSocketClient *client, AwsEventType type,
+                 void * /*arg*/, uint8_t * /*data*/, size_t /*len*/) {
+    if (type == WS_EVT_CONNECT)
     {
-    case WS_EVT_CONNECT:
-    case WS_EVT_DATA:
-    case WS_EVT_PONG:
       portal_touchActivity();
-      if (type == WS_EVT_CONNECT)
-        debugLog("WebSocket client connected: %u", client->id());
-      break;
-    case WS_EVT_DISCONNECT:
+      debugLog("WebSocket client connected: %u", client->id());
+    }
+    else if (type == WS_EVT_DISCONNECT)
+    {
       portal_touchActivity();
       debugLog("WebSocket client disconnected: %u", client->id());
-      break;
-    default:
-      break;
+    }
+    else if (type == WS_EVT_DATA || type == WS_EVT_PONG)
+    {
+      portal_touchActivity();
     }
   });
-
   server->addHandler(ws);
 
   server->on("/", HTTP_GET, [](AsyncWebServerRequest *request) {
     portal_touchActivity();
-    request->send(200, "text/html", buildPortalPage());
+    request->send(request->beginResponse(200, "text/html", PORTAL_HTML));
   });
 
   server->on("/status", HTTP_GET, [](AsyncWebServerRequest *request) {
     portal_touchActivity();
+    if (otaInProgress)
+    {
+      request->send(200, "application/json",
+                    "{\"portalActive\":true,\"otaInProgress\":true,\"otaMessage\":\"Upload in progress\"}");
+      return;
+    }
     request->send(200, "application/json", buildStatusJson());
   });
 
   server->on("/logs", HTTP_GET, [](AsyncWebServerRequest *request) {
     portal_touchActivity();
-    request->send(200, "text/plain", debugLogGetBuffer());
+    if (otaInProgress)
+    {
+      request->send(200, "text/plain", "OTA upload in progress...\n");
+      return;
+    }
+    AsyncResponseStream *response = request->beginResponseStream("text/plain");
+    debugLogPrintTail(response, 4096);
+    request->send(response);
   });
 
   server->on("/logs/clear", HTTP_POST, [](AsyncWebServerRequest *request) {
     portal_touchActivity();
     debugLogClearBuffer();
-    otaMessage = "Logs cleared";
+    setOtaMessage("Logs cleared");
     request->send(200, "text/plain", "Logs cleared");
   });
 
@@ -273,63 +290,27 @@ void portalWeb_start()
 
   server->on("/exit", HTTP_GET, [](AsyncWebServerRequest *request) {
     portal_touchActivity();
-    request->send(200, "text/plain", "Rejoining mesh...");
-    // small delay then exit
-    delay(200);
-    exitPortalMode();
+    request->send(200, "text/plain", "Rejoining mesh. Restarting...");
+    portal_schedule_exit();
   });
 
-  // Raw binary upload handler
-  server->on("/update", HTTP_POST, [](AsyncWebServerRequest *request) {
-    // Response is sent from the body callback after Update.end()
-  }, NULL, [](AsyncWebServerRequest *request, uint8_t *data, size_t len, size_t index, size_t total) {
-    if (index == 0)
-    {
-      portal_touchActivity();
-      // start update
-      otaInProgress = true;
-      otaTotalBytes = total;
-      otaWrittenBytes = 0;
-      otaMessage = "Starting OTA...";
-      debugLog("OTA start, size=%u", (unsigned)total);
-      if (!Update.begin(total))
-      {
-        debugLog("Update.begin failed");
-        otaMessage = "Update.begin failed";
-        otaInProgress = false;
-        request->send(500, "text/plain", "Update begin failed");
-        return;
-      }
-    }
+  /* Multipart OTA upload (field name must be "update") - ESPAsyncWebServer OTA pattern */
+  server->on(
+      "/update", HTTP_POST,
+      [](AsyncWebServerRequest *request) {
+        if (otaFailed || Update.hasError())
+        {
+          otaInProgress = false;
+          otaFailed = false;
+          setOtaMessage("Update failed");
+          debugLog("OTA failed");
+          request->send(500, "text/plain", "Update failed");
+          return;
+        }
 
-    // write chunk
-    if (otaInProgress)
-    {
-      portal_touchActivity();
-      // feed watchdog during long uploads
-      esp_task_wdt_reset();
-      size_t written = Update.write(data, len);
-      if (written != len)
-      {
-        debugLog("Update write failed");
-        otaMessage = "Update write failed";
         otaInProgress = false;
-        request->send(500, "text/plain", "Update write failed");
-        return;
-      }
-      otaWrittenBytes += written;
-      otaMessage = String("Uploading firmware... ") + String((otaTotalBytes > 0) ? (unsigned long)((otaWrittenBytes * 100UL) / otaTotalBytes) : 0) + "%";
-    }
-
-    if (index + len == total)
-    {
-      // finalize
-      if (Update.end(true))
-      {
-        debugLog("OTA complete, written=%u", (unsigned)Update.size());
-        otaMessage = "OTA complete. Rebooting...";
-        otaInProgress = false;
-        // set NVS flag so next boot returns to portal mode for verification
+        debugLog("OTA complete, written=%u", (unsigned)otaWrittenBytes);
+        setOtaMessage("OTA complete. Rebooting...");
         Preferences prefs;
         if (prefs.begin("portal", false))
         {
@@ -338,50 +319,102 @@ void portalWeb_start()
           prefs.end();
         }
         request->send(200, "text/plain", "Flash complete, rebooting...");
-        delay(200);
-        ESP.restart();
-      }
-      else
-      {
-        debugLog("Update end failed");
-        otaMessage = "Update end failed";
-        otaInProgress = false;
-        request->send(500, "text/plain", "Update failed at end");
-      }
-    }
-  });
+        portal_schedule_ota_reboot();
+      },
+      [](AsyncWebServerRequest *request, String filename, size_t index, uint8_t *data, size_t len, bool final) {
+        if (otaFailed)
+          return;
+
+        if (index == 0)
+        {
+          otaInProgress = true;
+          portal_touchActivity();
+          debugLog("OTA upload active - idle timeout paused");
+          otaWrittenBytes = 0;
+          otaTotalBytes = 0;
+          otaFailed = false;
+          setOtaMessage("Starting OTA...");
+          debugLog("OTA start: %s", filename.c_str());
+          const size_t maxSize = (ESP.getFreeSketchSpace() - 0x1000) & 0xFFFFF000;
+          if (!Update.begin(maxSize))
+          {
+            otaFailed = true;
+            otaInProgress = false;
+            setOtaMessage("Update.begin failed");
+            debugLog("Update.begin failed");
+            Update.printError(Serial);
+            return;
+          }
+        }
+
+        esp_task_wdt_reset();
+        yield();
+
+        if (Update.write(data, len) != len)
+        {
+          otaFailed = true;
+          otaInProgress = false;
+          setOtaMessage("Update write failed");
+          debugLog("Update write failed");
+          Update.printError(Serial);
+          return;
+        }
+
+        otaWrittenBytes += len;
+        portal_touchActivity();
+
+        if (otaTotalBytes == 0 && request->contentLength() > 0)
+          otaTotalBytes = request->contentLength();
+
+        if (otaTotalBytes > 0 && (otaWrittenBytes % 65536) < (size_t)len)
+        {
+          snprintf(otaMessage, sizeof(otaMessage), "Uploading... %u%%",
+                   (unsigned)((otaWrittenBytes * 100UL) / otaTotalBytes));
+        }
+
+        if (final)
+        {
+          otaTotalBytes = index + len;
+          if (Update.end(true))
+          {
+            snprintf(otaMessage, sizeof(otaMessage), "Finishing OTA (%u bytes)", (unsigned)(index + len));
+            debugLog("OTA flash end OK, %u bytes", (unsigned)(index + len));
+          }
+          else
+          {
+            otaFailed = true;
+            otaInProgress = false;
+            setOtaMessage("Update.end failed");
+            debugLog("Update.end failed");
+            Update.printError(Serial);
+          }
+        }
+      });
 
   attachCaptivePortalRoutes(server);
 
   server->begin();
 
-  // register debug sender
-  registerDebugSender(notifyAllClients);
+  registerDebugSender(pushLogToWeb);
 
-  debugLog("Portal web server started");
-}
-
-uint8_t portalWeb_clientCount()
-{
-  if (!ws)
-    return 0;
-  return ws->count();
-}
-
-void portalWeb_poll()
-{
-  if (ws)
-    ws->cleanupClients();
+  debugLog("Portal web server started (free heap %u)", (unsigned)ESP.getFreeHeap());
 }
 
 void portalWeb_stop()
 {
-  if (!server)
-    return;
+  registerDebugSender(nullptr);
 
-  server->end();
-  delete server;
-  server = nullptr;
+  if (ws)
+  {
+    ws->closeAll();
+  }
+
+  if (server)
+  {
+    server->end();
+    delete server;
+    server = nullptr;
+  }
 
   if (ws)
   {
@@ -389,6 +422,5 @@ void portalWeb_stop()
     ws = nullptr;
   }
 
-  registerDebugSender(nullptr);
-  debugLog("Portal web server stopped");
+  Serial.println("[portal] web server stopped");
 }

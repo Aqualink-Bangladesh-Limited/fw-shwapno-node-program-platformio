@@ -1,6 +1,7 @@
 #include <WiFi.h>
 #include <DNSServer.h>
 #include <Preferences.h>
+#include <Update.h>
 #include "portal_handler.h"
 #include "app_config.h"
 #include "mesh_handler.h"
@@ -9,8 +10,31 @@
 #include "portal_web.h"
 
 static bool portalActive = false;
-static unsigned long lastActivity = 0;
+static volatile unsigned long lastActivity = 0;
+static unsigned long portalEnteredAt = 0;
+
+static unsigned long portal_elapsed_ms(unsigned long now, unsigned long last)
+{
+  if (now >= last)
+    return now - last;
+  /* now < last: millis wrap (last very old) vs brief race (last just updated) */
+  if ((last - now) < 60000UL)
+    return 0;
+  return (ULONG_MAX - last) + now + 1;
+}
+
+static bool portal_idle_timeout_expired(unsigned long now, unsigned long lastSnap)
+{
+  if (portalWeb_isOtaInProgress())
+    return false;
+  /* Ignore false triggers right after portal starts */
+  if (portalEnteredAt != 0 && portal_elapsed_ms(now, portalEnteredAt) < 60000UL)
+    return false;
+  return portal_elapsed_ms(now, lastSnap) >= PORTAL_TIMEOUT_MS;
+}
 static uint8_t activeNodeId = 0;
+static volatile bool portalExitPending = false;
+static volatile bool portalOtaRebootPending = false;
 
 DNSServer dnsServer;
 
@@ -28,16 +52,15 @@ void enterPortalMode(uint8_t nodeId)
   }
 
   activeNodeId = nodeId;
+  portalEnteredAt = millis();
   portal_touchActivity();
 
-  // Stop mesh participation
-  mesh_stop();
-  delay(300);
+  /* Only stop mesh if it was started (skip on post-OTA portal boot) */
+  if (mesh_is_started())
+    mesh_stop();
 
-  // Clean WiFi state before AP (mesh/AsyncTCP can leave STA active)
-  WiFi.disconnect(true);
   WiFi.mode(WIFI_OFF);
-  delay(100);
+  delay(200);
   WiFi.mode(WIFI_AP);
   WiFi.setSleep(false);
 
@@ -58,7 +81,8 @@ void enterPortalMode(uint8_t nodeId)
   portalActive = true;
   portal_touchActivity();
 
-  debugLog("Entered PORTAL MODE. SSID=%s IP=%s", ssid, apIP.toString().c_str());
+  debugLog("Entered PORTAL MODE. SSID=%s IP=%d.%d.%d.%d", ssid,
+           PORTAL_AP_IP_1, PORTAL_AP_IP_2, PORTAL_AP_IP_3, PORTAL_AP_IP_4);
 }
 
 void exitPortalMode()
@@ -66,14 +90,13 @@ void exitPortalMode()
   if (!portalActive)
     return;
 
+  portalActive = false;
+  portalWeb_stop();
+  delay(100);
   dnsServer.stop();
   WiFi.softAPdisconnect(true);
   delay(200);
 
-  // Restart the ESP to rejoin mesh in a clean state
-  portalActive = false;
-  // stop web server
-  portalWeb_stop();
   debugLog("Exiting PORTAL MODE, restarting...");
   Preferences prefs;
   if (prefs.begin("portal", false))
@@ -89,18 +112,66 @@ void portal_task()
   if (!portalActive)
     return;
 
-  dnsServer.processNextRequest();
-  portalWeb_poll();
+  if (!portalWeb_isOtaInProgress())
+  {
+    static unsigned long lastDnsMs = 0;
+    if (millis() - lastDnsMs >= 10)
+    {
+      lastDnsMs = millis();
+      dnsServer.processNextRequest();
+    }
+  }
 
-  /* Any WiFi client or open WebSocket keeps the session alive */
-  if (WiFi.softAPgetStationNum() > 0 || portalWeb_clientCount() > 0)
+  const unsigned long now = millis();
+  const unsigned long lastSnap = lastActivity;
+
+  /* Keep session alive: WiFi client connected or firmware uploading */
+  if (WiFi.softAPgetStationNum() > 0 || portalWeb_isOtaInProgress())
     portal_touchActivity();
 
-  unsigned long now = millis();
-  unsigned long idleMs = now - lastActivity;
-  if (idleMs >= PORTAL_TIMEOUT_MS)
+  if (portal_idle_timeout_expired(now, lastSnap))
   {
-    debugLog("Portal idle timeout (%lu s). Rebooting.", idleMs / 1000);
+    const unsigned long idleSec = portal_elapsed_ms(now, lastSnap) / 1000;
+    debugLog("Portal idle timeout (%lu s). Rebooting.", idleSec);
+    portal_schedule_exit();
+  }
+}
+
+void portal_schedule_exit()
+{
+  portalExitPending = true;
+}
+
+void portal_schedule_ota_reboot()
+{
+  portalOtaRebootPending = true;
+}
+
+void portal_process_deferred_actions()
+{
+  if (portalOtaRebootPending)
+  {
+    portalOtaRebootPending = false;
+    portalActive = false;
+    debugLog("OTA reboot (full chip reset, skip web teardown)");
+    delay(500);
+    ESP.restart();
+  }
+
+  if (portalExitPending)
+  {
+    portalExitPending = false;
+    if (portalWeb_isOtaInProgress() && Update.isRunning())
+      Update.abort();
+    portalActive = false;
+    Preferences prefs;
+    if (prefs.begin("portal", false))
+    {
+      prefs.putBool("portalBoot", false);
+      prefs.end();
+    }
+    debugLog("Portal restarting (clean reset)...");
+    delay(100);
     ESP.restart();
   }
 }

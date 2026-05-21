@@ -48,16 +48,31 @@ void debugLog(const char *fmt, ...)
   Serial.println(line);
   appendLogLine(line);
 
-  // Forward to registered sender (e.g., websocket)
   if (g_debugSender)
   {
     g_debugSender(line);
   }
 }
 
+void debugLogPrintTail(Print *out, size_t maxChars)
+{
+  if (!out)
+    return;
+  const size_t len = g_logBuffer.length();
+  if (len <= maxChars)
+    out->print(g_logBuffer);
+  else
+    out->print(g_logBuffer.c_str() + (len - maxChars));
+}
+
 String debugLogGetBuffer()
 {
   return g_logBuffer;
+}
+
+size_t debugLogGetBufferLength()
+{
+  return g_logBuffer.length();
 }
 
 void debugLogClearBuffer()

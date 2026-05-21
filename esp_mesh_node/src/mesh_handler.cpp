@@ -8,6 +8,12 @@
 
 painlessMesh mesh;
 long mesh_rssi = 0;
+static bool meshStarted = false;
+
+bool mesh_is_started()
+{
+  return meshStarted;
+}
 
 void meshInfo();
 
@@ -93,6 +99,7 @@ void mesh_init()
   mesh.init(MESH_PREFIX, MESH_PASSWORD, MESH_PORT, WIFI_AP_STA, MESH_CHANNEL);
   mesh.setContainsRoot(true);
   mesh.onReceive(receivedCallback);
+  meshStarted = true;
   meshInfo();
 }
 
@@ -103,7 +110,21 @@ void mesh_task()
 
 void mesh_stop()
 {
+  if (!meshStarted)
+    return;
+
+  debugLog("mesh stop...");
   mesh.stop();
+  const unsigned long deadline = millis() + 5000;
+  while (millis() < deadline)
+  {
+    mesh.update();
+    delay(50);
+  }
+  WiFi.disconnect(true, true);
+  delay(500);
+  meshStarted = false;
+  debugLog("mesh stopped");
 }
 
 void meshInfo()

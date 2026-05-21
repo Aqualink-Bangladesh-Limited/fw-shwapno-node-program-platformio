@@ -49,7 +49,7 @@ extern uint16_t arr[5];
 extern uint16_t sensor_data[2];
 extern uint16_t temperature, humidity;
 #define PORTAL_PASSWORD "aqualink@321"
-#define PORTAL_TIMEOUT_MS (120 * ONE_SECOND)
+#define PORTAL_TIMEOUT_MS (600 * ONE_SECOND) /* 10 min idle; disabled during OTA upload */
 /* AP address 192.168.4.1 (use IPAddress in portal_handler, not raw hex) */
 #define PORTAL_AP_IP_1 192
 #define PORTAL_AP_IP_2 168

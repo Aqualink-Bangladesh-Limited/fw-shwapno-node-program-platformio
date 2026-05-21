@@ -7,3 +7,4 @@ extern painlessMesh mesh;
 void mesh_init();
 void mesh_task();
 void mesh_stop();
+bool mesh_is_started();
