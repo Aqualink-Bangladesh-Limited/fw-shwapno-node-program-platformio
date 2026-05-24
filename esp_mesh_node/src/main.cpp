@@ -85,6 +85,7 @@ void setup()
 void loop()
 {
   esp_task_wdt_reset();
+  led_handler();
   portal_process_deferred_actions();
   modbus_task();
 
@@ -116,8 +117,6 @@ void loop()
     ir_handler();
     flag = false;
   }
-
-  led_handler();
 
   if (!isPortalActive() && portalRequested)
   {

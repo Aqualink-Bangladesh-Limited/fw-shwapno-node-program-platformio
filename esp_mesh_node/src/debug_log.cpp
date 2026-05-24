@@ -1,17 +1,28 @@
 #include "debug_log.h"
+#include "app_config.h"
 #include <stdarg.h>
 #include <string.h>
 
 static DebugSendFn g_debugSender = nullptr;
 static String g_logBuffer;
-static const size_t LOG_BUFFER_LIMIT = 8192;
+static const size_t LOG_BUFFER_LIMIT = DEBUG_LOG_BUFFER_BYTES;
+static const size_t LOG_BUFFER_RESERVE = DEBUG_LOG_BUFFER_BYTES + 256;
+
+static void ensureLogBufferCapacity()
+{
+  static bool reserved = false;
+  if (reserved)
+    return;
+  g_logBuffer.reserve(LOG_BUFFER_RESERVE);
+  reserved = true;
+}
 
 static void appendLogLine(const char *line)
 {
+  ensureLogBufferCapacity();
+
   if (g_logBuffer.length() > 0)
-  {
     g_logBuffer += '\n';
-  }
 
   g_logBuffer += line;
 
@@ -20,10 +31,9 @@ static void appendLogLine(const char *line)
     int firstBreak = g_logBuffer.indexOf('\n');
     if (firstBreak < 0)
     {
-      g_logBuffer = g_logBuffer.substring(g_logBuffer.length() / 2);
+      g_logBuffer.remove(0, g_logBuffer.length() / 2);
       break;
     }
-
     g_logBuffer.remove(0, firstBreak + 1);
   }
 }
@@ -78,4 +88,5 @@ size_t debugLogGetBufferLength()
 void debugLogClearBuffer()
 {
   g_logBuffer = "";
+  ensureLogBufferCapacity();
 }

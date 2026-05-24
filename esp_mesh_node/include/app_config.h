@@ -50,12 +50,42 @@ extern uint16_t sensor_data[2];
 extern uint16_t temperature, humidity;
 #define PORTAL_PASSWORD "aqualink@321"
 #define PORTAL_TIMEOUT_MS (600 * ONE_SECOND) /* 10 min idle; disabled during OTA upload */
+/* Portal log ring buffer (RAM). 16 KB is safe on ESP32-S3 N8R2 (~200+ KB free heap in portal). */
+#define DEBUG_LOG_BUFFER_BYTES 16384
 /* AP address 192.168.4.1 (use IPAddress in portal_handler, not raw hex) */
 #define PORTAL_AP_IP_1 192
 #define PORTAL_AP_IP_2 168
 #define PORTAL_AP_IP_3 4
 #define PORTAL_AP_IP_4 1
-#define PORTAL_TRIGGER_FC 0x41 /* MBAP: ... 00 02 <nodeId> 41 → start portal */
+#define PORTAL_TRIGGER_FC 0x41 /* MBAP: ... 00 02 <nodeId> 41 -> start portal */
+
+/*
+ * LED pattern guide (BOARD_VERSION_04: LED_MESH=14, LED_MESH_SIGNAL=11, LED_AC=21)
+ *
+ * LED_MESH (link):
+ *   Portal mode     -> solid ON (setup/AP active, mesh stopped)
+ *   Mesh recent RX  -> solid ON (connected, traffic within MESH_INTERVAL)
+ *   Mesh idle       -> slow blink LED_MESH_SEARCH_MS (searching / no recent traffic)
+ *
+ * LED_MESH_SIGNAL (signal / alive):
+ *   Portal mode     -> fast blink LED_PORTAL_SIGNAL_MS per phase (200ms on/off)
+ *   mesh_rssi == 0  -> double-blink LED_NO_RSSI_* (MCU alive, no mesh RSSI yet)
+ *   Linked weak     -> slowest steady blink LED_RSSI_WEAK_MS
+ *   Linked medium   -> LED_RSSI_MEDIUM_MS
+ *   Linked strong   -> fastest steady blink LED_RSSI_STRONG_MS
+ *   Rule: faster steady blink = stronger link; double-blink = not linked yet
+ *
+ * LED_AC (AC only, ignored in portal):
+ *   arr[1] 0 OFF | 1/2 ON | 3 blink LED_AC_OFF_BLINK_MS
+ */
+#define LED_MESH_SEARCH_MS 500
+#define LED_RSSI_STRONG_MS 500
+#define LED_RSSI_MEDIUM_MS 1000
+#define LED_RSSI_WEAK_MS 2000
+#define LED_NO_RSSI_PULSE_MS 120
+#define LED_NO_RSSI_PAUSE_MS 2800
+#define LED_PORTAL_SIGNAL_MS 200
+#define LED_AC_OFF_BLINK_MS 500
 
 extern bool portalRequested;
 extern unsigned long portalRequestTime;

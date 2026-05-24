@@ -8,6 +8,7 @@
 #include "debug_print.h"
 #include "debug_log.h"
 #include "portal_web.h"
+#include "led_handler.h"
 
 static bool portalActive = false;
 static volatile unsigned long lastActivity = 0;
@@ -83,6 +84,8 @@ void enterPortalMode(uint8_t nodeId)
 
   debugLog("Entered PORTAL MODE. SSID=%s IP=%d.%d.%d.%d", ssid,
            PORTAL_AP_IP_1, PORTAL_AP_IP_2, PORTAL_AP_IP_3, PORTAL_AP_IP_4);
+
+  led_handler();
 }
 
 void exitPortalMode()

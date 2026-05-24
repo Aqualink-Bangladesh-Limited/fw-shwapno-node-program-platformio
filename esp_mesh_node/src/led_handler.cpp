@@ -1,102 +1,183 @@
 #include "app_config.h"
 #include "led_handler.h"
+#include "portal_handler.h"
 
-unsigned long mesh_blink_interval = 500;
-unsigned long last_mesh_led_blink = 0;
-bool mesh_led_state = false;
-int ac_led_state = 0;
-unsigned long last_rssi_led_blink = 0;
-bool rssi_led_state = false;
+/* See app_config.h for the full LED pattern guide. */
 
-void handle_ac_led(uint16_t ac_state);
-void blink_ac_led();
-void handle_rssi_led(unsigned long now);
-
-void led_handler()
+typedef struct
 {
-  unsigned long now = millis();
+  unsigned long durationMs;
+  bool on;
+} LedPhaseStep;
 
-  handle_ac_led(arr[1]);
+static bool meshLedState = false;
+static bool signalLedState = false;
+static bool acLedState = false;
 
-  // Mesh LED logic
-  if (now - lastMeshReceivedTime <= MESH_INTERVAL)
-  {
-    digitalWrite(LED_MESH, HIGH);
-  }
-  else
-  {
-    if (now - last_mesh_led_blink >= mesh_blink_interval)
-    {
-      last_mesh_led_blink = now;
-      mesh_led_state = !mesh_led_state;
-      digitalWrite(LED_MESH, mesh_led_state);
-    }
-  }
+static unsigned long meshLedLastToggle = 0;
+static unsigned long signalLedLastToggle = 0;
 
-  // RSSI LED logic
-  handle_rssi_led(now);
+static uint8_t signalPhaseIndex = 0;
+static unsigned long signalPhaseStart = 0;
+static bool signalUsingPhasePattern = false;
+static bool wasPortalActive = false;
+
+static void led_write(uint8_t pin, bool on)
+{
+  digitalWrite(pin, on ? HIGH : LOW);
 }
 
-void handle_ac_led(uint16_t ac_state)
+static void led_toggle_interval(uint8_t pin, unsigned long halfPeriodMs, unsigned long now,
+                                unsigned long *lastToggle, bool *state)
 {
-  switch (ac_state)
+  if (now - *lastToggle < halfPeriodMs)
+    return;
+  *lastToggle = now;
+  *state = !*state;
+  led_write(pin, *state);
+}
+
+static void led_run_phase_pattern(uint8_t pin, unsigned long now,
+                                  const LedPhaseStep *steps, uint8_t stepCount,
+                                  uint8_t *phaseIndex, unsigned long *phaseStart)
+{
+  if (*phaseStart == 0)
+  {
+    *phaseStart = now;
+    *phaseIndex = 0;
+    led_write(pin, steps[0].on);
+    return;
+  }
+
+  if (now - *phaseStart < steps[*phaseIndex].durationMs)
+    return;
+
+  *phaseStart = now;
+  *phaseIndex = (uint8_t)((*phaseIndex + 1) % stepCount);
+  led_write(pin, steps[*phaseIndex].on);
+}
+
+static void reset_signal_phase_pattern()
+{
+  signalPhaseIndex = 0;
+  signalPhaseStart = 0;
+  signalUsingPhasePattern = false;
+}
+
+static void handle_portal_leds(unsigned long now)
+{
+  /* Time-based blink: correct rate even if loop() was delayed (mesh_stop, WiFi, etc.) */
+  const bool signalOn = ((now / LED_PORTAL_SIGNAL_MS) & 1U) == 0U;
+
+  led_write(LED_MESH, true);
+  led_write(LED_AC_STATUS, false);
+  led_write(LED_MESH_SIGNAL_STATUS, signalOn);
+}
+
+static void handle_mesh_link_led(unsigned long now)
+{
+  if (now - lastMeshReceivedTime <= MESH_INTERVAL)
+  {
+    led_write(LED_MESH, true);
+    return;
+  }
+
+  led_toggle_interval(LED_MESH, LED_MESH_SEARCH_MS, now, &meshLedLastToggle, &meshLedState);
+}
+
+static void handle_signal_led(unsigned long now)
+{
+  if (mesh_rssi == 0)
+  {
+    static const LedPhaseStep noRssiPattern[] = {
+        {LED_NO_RSSI_PULSE_MS, true},
+        {LED_NO_RSSI_PULSE_MS, false},
+        {LED_NO_RSSI_PULSE_MS, true},
+        {LED_NO_RSSI_PAUSE_MS, false},
+    };
+
+    if (!signalUsingPhasePattern)
+    {
+      signalUsingPhasePattern = true;
+      signalPhaseIndex = 0;
+      signalPhaseStart = 0;
+      signalLedLastToggle = now;
+    }
+
+    led_run_phase_pattern(LED_MESH_SIGNAL_STATUS, now, noRssiPattern,
+                          (uint8_t)(sizeof(noRssiPattern) / sizeof(noRssiPattern[0])),
+                          &signalPhaseIndex, &signalPhaseStart);
+    return;
+  }
+
+  if (signalUsingPhasePattern)
+  {
+    reset_signal_phase_pattern();
+    signalLedLastToggle = now;
+    signalLedState = false;
+    led_write(LED_MESH_SIGNAL_STATUS, false);
+  }
+
+  unsigned long halfPeriodMs;
+  if (mesh_rssi > -40)
+    halfPeriodMs = LED_RSSI_STRONG_MS;
+  else if (mesh_rssi > -60)
+    halfPeriodMs = LED_RSSI_MEDIUM_MS;
+  else
+    halfPeriodMs = LED_RSSI_WEAK_MS;
+
+  led_toggle_interval(LED_MESH_SIGNAL_STATUS, halfPeriodMs, now,
+                      &signalLedLastToggle, &signalLedState);
+}
+
+static void handle_ac_led(uint16_t acState)
+{
+  switch (acState)
   {
   case 0:
-    digitalWrite(LED_AC_STATUS, LOW);
+    led_write(LED_AC_STATUS, false);
     break;
   case 1:
   case 2:
-    digitalWrite(LED_AC_STATUS, HIGH);
+    led_write(LED_AC_STATUS, true);
     break;
   case 3:
-    blink_ac_led();
+  {
+    static unsigned long acOffLastToggle = 0;
+    led_toggle_interval(LED_AC_STATUS, LED_AC_OFF_BLINK_MS, millis(),
+                        &acOffLastToggle, &acLedState);
     break;
+  }
   default:
-    digitalWrite(LED_AC_STATUS, LOW);
+    led_write(LED_AC_STATUS, false);
     break;
   }
 }
 
-void blink_ac_led()
+void led_handler()
 {
-  static unsigned long last_blink = 0;
-  unsigned long now = millis();
-  if (now - last_blink >= 500)
+  const unsigned long now = millis();
+  const bool portalActive = isPortalActive();
+
+  if (portalActive != wasPortalActive)
   {
-    last_blink = now;
-    ac_led_state = !ac_led_state;
-    digitalWrite(LED_AC_STATUS, ac_led_state);
+    wasPortalActive = portalActive;
+    meshLedLastToggle = now;
+    signalLedLastToggle = now;
+    reset_signal_phase_pattern();
+    meshLedState = false;
+    signalLedState = false;
+    if (portalActive)
+      handle_portal_leds(now);
   }
-}
 
-void handle_rssi_led(unsigned long now)
-{
-  unsigned long interval;
-
-  if (mesh_rssi == 0)
+  if (portalActive)
   {
-    // No signal → LED OFF
-    digitalWrite(LED_MESH_SIGNAL_STATUS, LOW);
-    rssi_led_state = false;
+    handle_portal_leds(now);
     return;
   }
-  else if (mesh_rssi > -40)
-  {
-    interval = 500; // strong signal
-  }
-  else if (mesh_rssi > -60)
-  {
-    interval = 1000; // medium signal
-  }
-  else
-  {
-    interval = 2000; // weak signal
-  }
 
-  if (now - last_rssi_led_blink >= interval)
-  {
-    last_rssi_led_blink = now;
-    rssi_led_state = !rssi_led_state;
-    digitalWrite(LED_MESH_SIGNAL_STATUS, rssi_led_state);
-  }
+  handle_ac_led(arr[1]);
+  handle_mesh_link_led(now);
+  handle_signal_led(now);
 }
