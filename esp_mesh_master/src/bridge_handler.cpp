@@ -4,10 +4,10 @@
 #include "master_modbus_handler.h"
 #include "debug_print.h"
 #include "debug_log.h"
+#include "restart_guard.h"
 #include <Arduino.h>
 #include <WiFi.h>
 #include <WiFiUdp.h>
-#include <EEPROM.h>
 #include <deque>
 #include <vector>
 
@@ -35,8 +35,6 @@ static constexpr int MAX_QUEUE_SIZE = 20;
 
 static unsigned long lastConnectedTime = 0;
 static constexpr unsigned long WIFI_TIMEOUT = 300000;
-static int restartCount = 0;
-static constexpr int MAX_RESTARTS = 50;
 static constexpr unsigned long RESTART_TIMEOUT = 900000;
 static bool wifiConnected = false;
 static bool bridgeStarted = false;
@@ -83,20 +81,25 @@ static void initWiFi()
 
 static void connectToWiFi()
 {
-  if (millis() - lastConnectedTime >= WIFI_TIMEOUT)
+  if (millis() - lastConnectedTime < WIFI_TIMEOUT)
+    return;
+
+  if (restart_guard_is_halted())
   {
-    debugLog("Failed to connect to Wi-Fi in 5 minutes. Restarting...");
-
-    restartCount++;
-    EEPROM.write(0, restartCount);
-    EEPROM.commit();
-
-    if (restartCount < MAX_RESTARTS)
+    static unsigned long lastRetryMs = 0;
+    const unsigned long now = millis();
+    if (now - lastRetryMs >= 60000UL)
     {
-      debugLog("ESP Restarting.....");
-      ESP.restart();
+      lastRetryMs = now;
+      debugLog("Restart halted; retrying Wi-Fi without reboot");
+      WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
     }
+    lastConnectedTime = now;
+    return;
   }
+
+  debugLog("Failed to connect to Wi-Fi in 5 minutes.");
+  restart_guard_request("WiFi connect timeout");
 }
 
 void bridge_init()
@@ -105,7 +108,6 @@ void bridge_init()
   lastUdpUpdateTime = now;
   lastRxtxUpdateTime = now;
 
-  EEPROM.begin(512);
   initWiFi();
   udp.begin(udpPort);
   bridgeStarted = true;
@@ -130,11 +132,8 @@ void bridge_wifi_update()
   wifiConnected = true;
   debugLog("Connected to Wi-Fi: %s", WiFi.SSID().c_str());
   debugLog("IP Address: %s", WiFi.localIP().toString().c_str());
+  restart_guard_clear();
   printDebugInfo();
-
-  restartCount = 0;
-  EEPROM.write(0, restartCount);
-  EEPROM.commit();
 }
 
 void bridge_process_udp_serial()
@@ -274,17 +273,13 @@ void bridge_check_idle_restart()
 {
   const unsigned long currentMillis = millis();
 
-  if (currentMillis - lastUdpUpdateTime > RESTART_TIMEOUT)
-  {
-    debugLog("No UDP data in 15 minutes. Restarting...");
-    ESP.restart();
-  }
+  /* Restart only when BOTH legs are idle: avoids false reboot if only UDP flows
+     (no mesh replies yet) or only serial flows without recent UDP ingress. */
+  const bool udpIdle = currentMillis - lastUdpUpdateTime > RESTART_TIMEOUT;
+  const bool serialIdle = currentMillis - lastRxtxUpdateTime > RESTART_TIMEOUT;
 
-  if (currentMillis - lastRxtxUpdateTime > RESTART_TIMEOUT)
-  {
-    debugLog("No TX/RX data in 15 minutes. Restarting...");
-    ESP.restart();
-  }
+  if (udpIdle && serialIdle)
+    restart_guard_request("Bridge idle 15min (no UDP and no UART)");
 }
 
 void bridge_stop()

@@ -121,6 +121,15 @@ Open `http://192.168.4.1/` if the captive-portal popup does not appear.
 
 Post-OTA: NVS flag re-enters portal once for verification (same as node), then exit returns to bridge.
 
+## Bridge idle watchdog (15 minutes)
+
+Restart (via restart guard, see below) **only after both** have been idle for **15 minutes**:
+
+- **UDP** — no ingress (including forwarded traffic to mesh, master Modbus, portal trigger)
+- **UART** — no complete serial frame outbound to LAN
+
+So one active path alone does **not** force a reboot. If neither side sees traffic for 15 minutes, the bridge is stuck or disused and reboot is requested.
+
 ## LED indicators (BOARD_VERSION_04)
 
 | GPIO | Role |
@@ -173,6 +182,7 @@ Packet hex dumps are **one line** per event (e.g. `Sending packet to root: AC 10
 | `portal_handler.cpp` / `portal_web.cpp` | Captive portal AP, OTA, web UI |
 | `button_handler.cpp` | 5 s hold → portal |
 | `led_handler.cpp` | LED patterns |
+| `restart_guard.cpp` | Limits consecutive auto-restarts ( EEPROM ); cleared on Wi-Fi connect |
 | `debug_print.cpp` / `debug_log.cpp` | Status logs, ring buffer |
 
 ## Build

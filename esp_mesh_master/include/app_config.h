@@ -50,6 +50,10 @@ static const uint8_t UDP_BROADCAST_IP[4] = {255, 255, 255, 255};
 #define DEBUG_PRINT_INTERVAL_BRIDGE_MS (5 * ONE_SECOND)
 #define DEBUG_PRINT_INTERVAL_PORTAL_MS (5 * ONE_SECOND)
 
+/* Consecutive auto-restart limit (EEPROM); cleared on successful Wi-Fi connect */
+#define RESTART_COUNT_EEPROM_ADDR 0
+#define MAX_CONSECUTIVE_RESTARTS 10
+
 extern bool portalRequested;
 extern unsigned long portalRequestTime;
 extern bool portalBootOnNextBoot;

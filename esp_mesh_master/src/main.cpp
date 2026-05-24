@@ -8,6 +8,7 @@
 #include "debug_log.h"
 #include "portal_handler.h"
 #include "debug_print.h"
+#include "restart_guard.h"
 
 // Portal flags (defined here because app_config.h declares them extern)
 bool portalRequested = false;
@@ -23,6 +24,8 @@ void setup()
   // Disable Arduino default 5s idle WDT before long WiFi setup.
   esp_task_wdt_deinit();
   debugLog("boot: setup start");
+
+  restart_guard_init();
 
   // Post-OTA: re-enter portal for verification (before bridge starts).
   Preferences prefs;
