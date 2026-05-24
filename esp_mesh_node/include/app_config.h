@@ -59,6 +59,11 @@ extern uint16_t temperature, humidity;
 #define PORTAL_AP_IP_4 1
 #define PORTAL_TRIGGER_FC 0x41 /* MBAP: ... 00 02 <nodeId> 41 -> start portal */
 
+/* Portal button: GPIO0 active LOW, 5s hold (BOARD_VERSION_04). Avoid held-low at power-on (strapping). */
+#define PORTAL_BUTTON_PIN 0
+#define PORTAL_BUTTON_HOLD_MS (5 * ONE_SECOND)
+#define PORTAL_BUTTON_DEBOUNCE_MS 50
+
 /*
  * LED pattern guide (BOARD_VERSION_04: LED_MESH=14, LED_MESH_SIGNAL=11, LED_AC=21)
  *

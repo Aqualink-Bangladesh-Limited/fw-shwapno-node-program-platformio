@@ -7,6 +7,7 @@
 #include "debug_log.h"
 #include <Preferences.h>
 #include "portal_handler.h"
+#include "button_handler.h"
 
 uint16_t arr[5] = {0, 0, 0, 5, 30};
 uint16_t sensor_data[2] = {0xFFFF, 0xFFFF};
@@ -56,6 +57,8 @@ void setup()
   pinMode(LED_AC_STATUS, OUTPUT);
   pinMode(LED_MESH, OUTPUT);
 
+  button_init();
+
   if (portalBootOnNextBoot)
   {
     debugLog("boot: portal mode (post-OTA)");
@@ -86,6 +89,7 @@ void loop()
 {
   esp_task_wdt_reset();
   led_handler();
+  button_task();
   portal_process_deferred_actions();
   modbus_task();
 

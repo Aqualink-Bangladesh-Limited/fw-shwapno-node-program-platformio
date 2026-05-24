@@ -52,6 +52,8 @@ Send as UDP payload to the mesh **master**. Master prepends client IP/port; root
 
 **Portal AP:** SSID `OTA-NODE-<nodeId>` (e.g. `OTA-NODE-4`), password `PORTAL_PASSWORD`, IP `192.168.4.1`. Open `http://192.168.4.1/` if the captive-portal popup does not appear.
 
+**Local button:** GPIO **0**, active **LOW**, hold **5 s** (serial logs at 1s-5s, then portal starts). Ignored while already in portal. Avoid holding the button low at power-on (ESP32 strapping pin).
+
 **Web UI:** firmware upload, live logs (WebSocket + polling), **Copy logs**, clear logs, exit portal (returns to mesh).
 
 **Log buffer:** `DEBUG_LOG_BUFFER_BYTES` (16 KB default) in `app_config.h`. Oldest lines drop when full.
