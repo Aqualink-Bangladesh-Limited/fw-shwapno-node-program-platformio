@@ -2,7 +2,21 @@
 
 Firmware for the ESP32-S3 mesh **master bridge**: connects a Wi-Fi network to the mesh root over UART (Serial2). UDP clients send Modbus TCP-style commands; the master forwards them to the mesh or handles **master-local** requests (portal, WiFi RSSI read).
 
-Configure `MASTER_ID`, Wi-Fi credentials, and board version in `include/app_config.h`.
+## Prerequisites
+
+- [PlatformIO](https://platformio.org/), ESP32-S3, 8 MB flash (`partitions_ota.csv`)
+- UART link to mesh root on Serial2 (`RX_PIN` / `TX_PIN` per board version)
+- See [repo README](../README.md) for monorepo layout and shared protocol
+
+## Configuration (`include/app_config.h`)
+
+| Setting | Purpose |
+|---------|---------|
+| `MASTER_ID` | Local Modbus unit ID (default `201`) |
+| `WIFI_SSID` / `WIFI_PASSWORD` | Wi-Fi STA credentials (bridge mode) |
+| `BOARD_VERSION_04` or `_03` | LED pins and UART pins |
+| `FIRMWARE_VERSION` | Release label (portal logs, debug) |
+| `PORTAL_PASSWORD` | Captive portal AP password |
 
 ## Architecture
 
@@ -194,16 +208,13 @@ pio run -d esp_mesh_master -t upload
 
 Uses `partitions_ota.csv` and ESPAsyncWebServer (see `platformio.ini`).
 
-## Related docs
-
-- `docs/portal_ota_design.md` — portal UI, OTA, NVS post-update boot
-- `docs/portal_ota_issues.md` — known issues, fixes, test checklist
-
 ## Quick test checklist
 
-1. **Bridge:** Modbus read node 4 → packet forwarded on Serial2 with client IP:port prefix.
-2. **Master RSSI:** `00 01 00 00 00 06 C9 03 00 01 00 01` → UDP response with RSSI register.
-3. **Portal UDP:** `00 01 00 00 00 02 C9 41` → AP `OTA-MASTER-201`, not forwarded.
+1. **Bridge:** Modbus read to a node ID → packet forwarded on Serial2 with client IP:port prefix.
+2. **Master RSSI:** FC `0x03` read reg `0x01` targeting `MASTER_ID` → UDP response with RSSI register.
+3. **Portal UDP:** FC `0x41` targeting `MASTER_ID` → AP `OTA-MASTER-<MASTER_ID>`, not forwarded.
 4. **Portal button:** Hold GPIO 0 for 5 s → same AP.
 5. **Exit portal:** Web **Exit** or 10 min idle (no AP client) → reboot → bridge / Wi-Fi STA.
-6. **Node portal:** `00 01 00 00 00 02 04 41` → forwarded to root (node 4).
+6. **Node portal:** FC `0x41` targeting `<nodeId>` → forwarded to root.
+
+See also: [esp_mesh_root/README.md](../esp_mesh_root/README.md), [esp_mesh_node/README.md](../esp_mesh_node/README.md).

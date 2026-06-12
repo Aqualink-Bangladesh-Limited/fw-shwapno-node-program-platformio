@@ -2,7 +2,22 @@
 
 Firmware for the ESP32-S3 **mesh root**: bridges the mesh network to the master over UART (Serial2). Forwards Modbus-style traffic to mesh nodes and handles **root-local** requests (portal, mesh RSSI read).
 
-Configure `ROOT_ID`, mesh settings, and board version in `include/app_config.h`.
+## Prerequisites
+
+- [PlatformIO](https://platformio.org/), ESP32-S3, 8 MB flash (`partitions_ota.csv`)
+- UART link to master on Serial2 (`RX_PIN` / `TX_PIN` per board version)
+- See [repo README](../README.md) for monorepo layout and shared protocol
+
+## Configuration (`include/app_config.h`)
+
+| Setting | Purpose |
+|---------|---------|
+| `ROOT_ID` | Local Modbus unit ID (default `221`) |
+| `MESH_PREFIX`, `MESH_PASSWORD`, `MESH_PORT`, `MESH_CHANNEL` | painlessMesh network (nodes must use same values) |
+| `START_NODE` / `END_NODE` | Expected node ID range on this mesh (default `8`–`15`) |
+| `BOARD_VERSION_04` or `_03` | LED pins and UART pins |
+| `FIRMWARE_VERSION` | Release label (portal logs, debug) |
+| `PORTAL_PASSWORD` | Captive portal AP password |
 
 ## Architecture
 
@@ -169,8 +184,10 @@ Uses `partitions_ota.csv` and ESPAsyncWebServer (see `platformio.ini`).
 
 ## Quick test checklist
 
-1. **Mesh forward:** Modbus to node 8 → forwarded on mesh.
-2. **Root RSSI:** `00 01 00 00 00 06 DD 03 00 01 00 01` on UART → response with mesh RSSI register.
-3. **Portal UART:** `00 01 00 00 00 02 DD 41` → AP `OTA-ROOT-221`, mesh stopped.
+1. **Mesh forward:** Modbus to a node ID in `START_NODE`–`END_NODE` range → forwarded on mesh.
+2. **Root RSSI:** FC `0x03` read reg `0x01` targeting `ROOT_ID` on UART → response with mesh RSSI register.
+3. **Portal UART:** FC `0x41` targeting `ROOT_ID` → AP `OTA-ROOT-<ROOT_ID>`, mesh stopped.
 4. **Portal button:** Hold GPIO 0 for 5 s → same AP.
 5. **Exit portal:** Web **Exit** or 10 min idle → reboot → mesh root.
+
+See also: [esp_mesh_master/README.md](../esp_mesh_master/README.md), [esp_mesh_node/README.md](../esp_mesh_node/README.md).
