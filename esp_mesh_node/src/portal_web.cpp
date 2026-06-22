@@ -236,6 +236,9 @@ void portalWeb_start()
     if (type == WS_EVT_CONNECT)
     {
       portal_touchActivity();
+      const String logs = debugLogGetBuffer();
+      if (logs.length() > 0)
+        client->text(logs);
       debugLog("WebSocket client connected: %u", client->id());
     }
     else if (type == WS_EVT_DISCONNECT)
