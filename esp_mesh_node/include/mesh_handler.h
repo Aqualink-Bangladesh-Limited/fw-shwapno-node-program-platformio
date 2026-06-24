@@ -8,3 +8,4 @@ void mesh_init();
 void mesh_task();
 void mesh_stop();
 bool mesh_is_started();
+void meshInfo();

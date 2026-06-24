@@ -24,9 +24,17 @@ void mesh_handler_stop()
   if (!meshStarted)
     return;
 
+  debugLog("mesh stop...");
   mesh.stop();
+  const unsigned long deadline = millis() + 5000;
+  while (millis() < deadline)
+  {
+    mesh.update();
+    delay(50);
+  }
+  WiFi.disconnect(true, true);
+  delay(500);
   meshStarted = false;
-  delay(200);
   debugLog("Mesh stopped for portal mode");
 }
 

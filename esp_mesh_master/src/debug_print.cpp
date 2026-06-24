@@ -93,13 +93,23 @@ void masterInfo()
   debugLog("UDP Port: %u", (unsigned)UDP_DEFAULT_PORT);
 }
 
+void portalInfo()
+{
+  char portalSsid[32];
+  snprintf(portalSsid, sizeof(portalSsid), "OTA-MASTER-%u", (unsigned)MASTER_ID);
+
+  debugLog("Portal opened (bridge was running)");
+  masterInfo();
+  debugLog("Portal: on");
+  debugLog("AP SSID %s, password %s", portalSsid, PORTAL_PASSWORD);
+  debugLog("Open http://%d.%d.%d.%d/ for OTA", PORTAL_AP_IP_1, PORTAL_AP_IP_2,
+           PORTAL_AP_IP_3, PORTAL_AP_IP_4);
+  debugLog("Exit in web UI or %lu min idle (paused during OTA)",
+           (unsigned long)(PORTAL_TIMEOUT_MS / 60000UL));
+}
+
 void printDebugInfo()
 {
-  debugLog("--- Master Status ---");
-  debugLog("Board: %s", boardVersionString());
-  debugLog("Firmware: %s", FIRMWARE_VERSION);
-  debugLog("Master ID: %u", (unsigned)MASTER_ID);
-
   if (isPortalActive())
   {
     char portalSsid[32];
@@ -108,11 +118,17 @@ void printDebugInfo()
     debugLog("Mode: Portal");
     debugLog("WiFi: %s", portalSsid);
     debugLog("IP: %d.%d.%d.%d", PORTAL_AP_IP_1, PORTAL_AP_IP_2, PORTAL_AP_IP_3, PORTAL_AP_IP_4);
-    debugLog("RSSI: N/A (portal AP mode)");
     debugLog("AP clients: %u", (unsigned)WiFi.softAPgetStationNum());
     debugLog("OTA upload: %s", portalWeb_isOtaInProgress() ? "yes" : "no");
+    return;
   }
-  else if (WiFi.status() == WL_CONNECTED)
+
+  debugLog("--- Master Status ---");
+  debugLog("Board: %s", boardVersionString());
+  debugLog("Firmware: %s", FIRMWARE_VERSION);
+  debugLog("Master ID: %u", (unsigned)MASTER_ID);
+
+  if (WiFi.status() == WL_CONNECTED)
   {
     const long rssi = WiFi.RSSI();
 

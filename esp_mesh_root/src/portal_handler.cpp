@@ -76,16 +76,14 @@ void enterPortalMode(uint8_t deviceId)
   // Captive portal: resolve all DNS names to the AP IP
   dnsServer.start(53, "*", apIP);
 
+  portalInfo();
+
+  portalWeb_start();
+
   portalActive = true;
   portal_touchActivity();
 
-  portalInfo();
-
-  // Start web server after portal banner is in log buffer (visible in web UI)
-  portalWeb_start();
-
   led_handler();
-  printDebugInfo();
 }
 
 void exitPortalMode()

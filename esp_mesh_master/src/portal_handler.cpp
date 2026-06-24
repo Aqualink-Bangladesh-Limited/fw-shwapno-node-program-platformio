@@ -76,17 +76,14 @@ void enterPortalMode(uint8_t deviceId)
   // Captive portal: resolve all DNS names to the AP IP
   dnsServer.start(53, "*", apIP);
 
-  // Start web server for portal
+  portalInfo();
+
   portalWeb_start();
 
   portalActive = true;
   portal_touchActivity();
 
-  debugLog("Entered PORTAL MODE. SSID=%s IP=%d.%d.%d.%d", ssid,
-           PORTAL_AP_IP_1, PORTAL_AP_IP_2, PORTAL_AP_IP_3, PORTAL_AP_IP_4);
-
   led_handler();
-  printDebugInfo();
 }
 
 void exitPortalMode()

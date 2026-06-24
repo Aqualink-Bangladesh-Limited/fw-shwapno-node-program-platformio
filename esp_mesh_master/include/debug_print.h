@@ -10,4 +10,5 @@ void debugLogPacket(const char *prefix, const uint8_t *packet, int packetSize);
 void debugLogPacket(const char *prefix, const std::vector<uint8_t> &packet);
 void printDebugInfo();
 void masterInfo();
+void portalInfo();
 bool debugShouldLogPacketDetails();
