@@ -126,6 +126,21 @@ static void logMeshPeers()
   }
 }
 
+static void formatPortalSsid(char *buf, size_t len)
+{
+  snprintf(buf, len, "OTA-ROOT-%u", (unsigned)ROOT_ID);
+}
+
+static void logPortalApDetails(const char *portalSsid)
+{
+  debugLog("Portal: on");
+  debugLog("AP SSID %s, password %s", portalSsid, PORTAL_PASSWORD);
+  debugLog("Open http://%d.%d.%d.%d/ for OTA", PORTAL_AP_IP_1, PORTAL_AP_IP_2,
+           PORTAL_AP_IP_3, PORTAL_AP_IP_4);
+  debugLog("Exit in web UI or %lu min idle (paused during OTA)",
+           (unsigned long)(PORTAL_TIMEOUT_MS / 60000UL));
+}
+
 bool debugShouldLogPacketDetails()
 {
   return !isPortalActive();
@@ -213,19 +228,13 @@ void rootInfo()
 void portalInfo()
 {
   char portalSsid[32];
-  snprintf(portalSsid, sizeof(portalSsid), "OTA-ROOT-%u", (unsigned)ROOT_ID);
+  formatPortalSsid(portalSsid, sizeof(portalSsid));
 
   debugLog("Portal opened (mesh was running)");
   logDeviceIdentity();
   printMeshInfo();
   logSlaveMapSnapshot();
-
-  debugLog("Portal: on");
-  debugLog("AP SSID %s, password %s", portalSsid, PORTAL_PASSWORD);
-  debugLog("Open http://%d.%d.%d.%d/ for OTA", PORTAL_AP_IP_1, PORTAL_AP_IP_2,
-           PORTAL_AP_IP_3, PORTAL_AP_IP_4);
-  debugLog("Exit in web UI or %lu min idle (paused during OTA)",
-           (unsigned long)(PORTAL_TIMEOUT_MS / 60000UL));
+  logPortalApDetails(portalSsid);
 }
 
 static void printMeshModeStatus()
@@ -259,7 +268,7 @@ static void printMeshModeStatus()
 static void printPortalModeStatus()
 {
   char portalSsid[32];
-  snprintf(portalSsid, sizeof(portalSsid), "OTA-ROOT-%u", (unsigned)ROOT_ID);
+  formatPortalSsid(portalSsid, sizeof(portalSsid));
 
   debugLog("Mode: portal %s", portalStateShort());
   logDeviceIdentity();

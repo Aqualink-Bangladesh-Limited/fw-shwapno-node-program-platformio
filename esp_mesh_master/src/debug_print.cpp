@@ -22,6 +22,28 @@ static const char *boardVersionString()
 #endif
 }
 
+static void formatPortalSsid(char *buf, size_t len)
+{
+  snprintf(buf, len, "OTA-MASTER-%u", (unsigned)MASTER_ID);
+}
+
+static void logMasterIdentity()
+{
+  debugLog("Board: %s", boardVersionString());
+  debugLog("Firmware: %s", FIRMWARE_VERSION);
+  debugLog("Master ID: %u", (unsigned)MASTER_ID);
+}
+
+static void logPortalApDetails(const char *portalSsid)
+{
+  debugLog("Portal: on");
+  debugLog("AP SSID %s, password %s", portalSsid, PORTAL_PASSWORD);
+  debugLog("Open http://%d.%d.%d.%d/ for OTA", PORTAL_AP_IP_1, PORTAL_AP_IP_2,
+           PORTAL_AP_IP_3, PORTAL_AP_IP_4);
+  debugLog("Exit in web UI or %lu min idle (paused during OTA)",
+           (unsigned long)(PORTAL_TIMEOUT_MS / 60000UL));
+}
+
 bool debugShouldLogPacketDetails()
 {
   return !isPortalActive();
@@ -86,9 +108,7 @@ void debugLogPacket(const char *prefix, const std::vector<uint8_t> &packet)
 void masterInfo()
 {
   debugLog("Bridge Network Details:");
-  debugLog("Board: %s", boardVersionString());
-  debugLog("Firmware: %s", FIRMWARE_VERSION);
-  debugLog("Master ID: %u", (unsigned)MASTER_ID);
+  logMasterIdentity();
   debugLog("SSID: %s", WIFI_SSID);
   debugLog("UDP Port: %u", (unsigned)UDP_DEFAULT_PORT);
 }
@@ -96,16 +116,11 @@ void masterInfo()
 void portalInfo()
 {
   char portalSsid[32];
-  snprintf(portalSsid, sizeof(portalSsid), "OTA-MASTER-%u", (unsigned)MASTER_ID);
+  formatPortalSsid(portalSsid, sizeof(portalSsid));
 
   debugLog("Portal opened (bridge was running)");
   masterInfo();
-  debugLog("Portal: on");
-  debugLog("AP SSID %s, password %s", portalSsid, PORTAL_PASSWORD);
-  debugLog("Open http://%d.%d.%d.%d/ for OTA", PORTAL_AP_IP_1, PORTAL_AP_IP_2,
-           PORTAL_AP_IP_3, PORTAL_AP_IP_4);
-  debugLog("Exit in web UI or %lu min idle (paused during OTA)",
-           (unsigned long)(PORTAL_TIMEOUT_MS / 60000UL));
+  logPortalApDetails(portalSsid);
 }
 
 void printDebugInfo()
@@ -113,7 +128,7 @@ void printDebugInfo()
   if (isPortalActive())
   {
     char portalSsid[32];
-    snprintf(portalSsid, sizeof(portalSsid), "OTA-MASTER-%u", (unsigned)MASTER_ID);
+    formatPortalSsid(portalSsid, sizeof(portalSsid));
 
     debugLog("Mode: Portal");
     debugLog("WiFi: %s", portalSsid);
@@ -124,9 +139,7 @@ void printDebugInfo()
   }
 
   debugLog("--- Master Status ---");
-  debugLog("Board: %s", boardVersionString());
-  debugLog("Firmware: %s", FIRMWARE_VERSION);
-  debugLog("Master ID: %u", (unsigned)MASTER_ID);
+  logMasterIdentity();
 
   if (WiFi.status() == WL_CONNECTED)
   {
