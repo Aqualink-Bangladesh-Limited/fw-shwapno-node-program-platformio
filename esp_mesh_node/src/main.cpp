@@ -100,11 +100,17 @@ void loop()
 
   unsigned long currentMillis = millis();
   static unsigned long last_print_time = 0;
+  constexpr unsigned long printInterval = 5000;
 
-  if (currentMillis - last_print_time >= 5000)
+  if (currentMillis - last_print_time >= printInterval)
   {
-    last_print_time = currentMillis;
-    printDebugInfo();
+    const bool portalStatusReady = !isPortalActive() ||
+                                   (currentMillis - portal_enteredAtMs() >= printInterval);
+    if (portalStatusReady)
+    {
+      last_print_time = currentMillis;
+      printDebugInfo();
+    }
   }
 
   unsigned long sensor_read_interval = arr[4] * ONE_SECOND;

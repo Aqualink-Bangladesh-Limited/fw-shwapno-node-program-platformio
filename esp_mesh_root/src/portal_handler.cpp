@@ -189,3 +189,8 @@ void portal_touchActivity()
 {
   lastActivity = millis();
 }
+
+unsigned long portal_enteredAtMs()
+{
+  return portalEnteredAt;
+}

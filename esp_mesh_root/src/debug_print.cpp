@@ -270,21 +270,9 @@ static void printPortalModeStatus()
   char portalSsid[32];
   formatPortalSsid(portalSsid, sizeof(portalSsid));
 
-  debugLog("Mode: portal %s", portalStateShort());
-  logDeviceIdentity();
-  printMeshInfo();
-
-  debugLog("AP %s / %s", portalSsid, PORTAL_PASSWORD);
-  debugLog("URL http://%d.%d.%d.%d/ | clients %u | OTA %s",
-           PORTAL_AP_IP_1, PORTAL_AP_IP_2, PORTAL_AP_IP_3, PORTAL_AP_IP_4,
-           (unsigned)WiFi.softAPgetStationNum(),
+  debugLog("Mode: portal | AP %s | clients %u | OTA %s",
+           portalSsid, (unsigned)WiFi.softAPgetStationNum(),
            portalWeb_isOtaInProgress() ? "yes" : "no");
-  debugLog("Mesh stack: stopped until reboot after exit");
-  logSlaveMapSnapshot();
-  debugLog("Idle restart %u/%u%s",
-           (unsigned)restart_guard_get_count(),
-           (unsigned)MAX_CONSECUTIVE_IDLE_RESTARTS,
-           restart_guard_is_lockout() ? " LOCKOUT" : "");
 }
 
 void printDebugInfo()

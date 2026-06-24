@@ -100,7 +100,12 @@ void loop()
 
   if (currentMillis - last_print_time >= printInterval)
   {
-    last_print_time = currentMillis;
-    printDebugInfo();
+    const bool portalStatusReady = !isPortalActive() ||
+                                   (currentMillis - portal_enteredAtMs() >= printInterval);
+    if (portalStatusReady)
+    {
+      last_print_time = currentMillis;
+      printDebugInfo();
+    }
   }
 }

@@ -130,11 +130,9 @@ void printDebugInfo()
     char portalSsid[32];
     formatPortalSsid(portalSsid, sizeof(portalSsid));
 
-    debugLog("Mode: Portal");
-    debugLog("WiFi: %s", portalSsid);
-    debugLog("IP: %d.%d.%d.%d", PORTAL_AP_IP_1, PORTAL_AP_IP_2, PORTAL_AP_IP_3, PORTAL_AP_IP_4);
-    debugLog("AP clients: %u", (unsigned)WiFi.softAPgetStationNum());
-    debugLog("OTA upload: %s", portalWeb_isOtaInProgress() ? "yes" : "no");
+    debugLog("Mode: portal | AP %s | clients %u | OTA %s | heap %u",
+             portalSsid, (unsigned)WiFi.softAPgetStationNum(),
+             portalWeb_isOtaInProgress() ? "yes" : "no", (unsigned)ESP.getFreeHeap());
     return;
   }
 

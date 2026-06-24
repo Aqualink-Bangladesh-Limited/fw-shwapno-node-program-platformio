@@ -166,8 +166,13 @@ void loop()
   const unsigned long now = millis();
   if (now - lastPrintTime >= printInterval)
   {
-    lastPrintTime = now;
-    printDebugInfo();
+    const bool portalStatusReady = !isPortalActive() ||
+                                   (now - portal_enteredAtMs() >= printInterval);
+    if (portalStatusReady)
+    {
+      lastPrintTime = now;
+      printDebugInfo();
+    }
   }
 }
 
