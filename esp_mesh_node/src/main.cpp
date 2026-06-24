@@ -58,8 +58,12 @@ void setup()
     prefs.end();
   }
 
+#if TEMP_SENSOR
   debugLog("boot: modbus_init");
   modbus_init();
+#else
+  debugLog("boot: no temp sensor (TEMP_SENSOR=0)");
+#endif
 
   pinMode(LED_MESH_SIGNAL_STATUS, OUTPUT);
   pinMode(LED_AC_STATUS, OUTPUT);
@@ -99,7 +103,9 @@ void loop()
   led_handler();
   button_task();
   portal_process_deferred_actions();
+#if TEMP_SENSOR
   modbus_task();
+#endif
 
   if (isPortalActive())
     portal_task();
@@ -121,12 +127,14 @@ void loop()
     }
   }
 
+#if TEMP_SENSOR
   unsigned long sensor_read_interval = arr[4] * ONE_SECOND;
   if (currentMillis - last_read_time >= sensor_read_interval)
   {
     last_read_time = currentMillis;
     ReadTemperatureHumidity();
   }
+#endif
 
   unsigned long ir_cooldown_time = arr[3] * ONE_SECOND;
   if (flag && (currentMillis - last_ir_send_time >= ir_cooldown_time))

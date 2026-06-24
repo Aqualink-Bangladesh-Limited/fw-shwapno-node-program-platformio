@@ -69,7 +69,9 @@ static const char *boardVersionString()
 
 static const char *sensorVersionString()
 {
-#if defined(SENSOR_VERSION_01)
+#if !TEMP_SENSOR
+  return "none";
+#elif defined(SENSOR_VERSION_01)
   return "V01";
 #elif defined(SENSOR_VERSION_02)
   return "V02";
@@ -126,7 +128,11 @@ static void printMeshPeriodicStatus()
 {
   logNodeConfig();
   debugLog("AC Set Temp: %d  AC Status: %d  AC Hit: %d  AC Cooldown: %d", arr[0], arr[1], arr[2], arr[3]);
+#if TEMP_SENSOR
   debugLog("Sensor Temp: %d  Humidity: %d", temperature, humidity);
+#else
+  debugLog("Sensor: not fitted");
+#endif
   debugLog("RSSI : %d", mesh_rssi);
   debugLog("Idle restart %u/%u%s",
            (unsigned)restart_guard_get_count(),

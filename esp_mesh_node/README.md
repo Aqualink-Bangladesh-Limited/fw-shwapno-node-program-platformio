@@ -16,8 +16,9 @@ Firmware for an ESP32-S3 mesh leaf node (Modbus sensors, IR AC control, captive-
 | `MESH_PREFIX`, `MESH_PASSWORD`, `MESH_PORT`, `MESH_CHANNEL` | Must match root |
 | One AC brand `#define` | e.g. `QUNDA_01` — selects IR raw codes in `ir_raw_data.cpp` |
 | `BOARD_VERSION_*` | LED and peripheral pins |
-| `SENSOR_VERSION_*` | External Modbus sensor driver |
-| `SLAVE_ID` | Modbus slave ID of the temp/humidity sensor |
+| `TEMP_SENSOR` | `1` = poll external Modbus RTU sensor; `0` = IR-only node (no Serial2 sensor) |
+| `SENSOR_VERSION_*` | Required when `TEMP_SENSOR` is `1` — sensor register layout |
+| `SLAVE_ID` | Modbus slave ID of the temp/humidity sensor (when fitted) |
 | `FIRMWARE_VERSION` | Release label (portal logs, debug) |
 | `PORTAL_PASSWORD` | Captive portal AP password |
 
@@ -101,8 +102,8 @@ Standard **FC `0x03`** read; **FC `0x06` / `0x10`** write for holding registers 
 | `0x03` | AC hit / trigger | `arr[2]` | Yes | Write sets `flag` → IR send on next loop |
 | `0x04` | IR cooldown (seconds) | `arr[3]` | Yes | Min time between IR sends |
 | `0x05` | Sensor read interval (seconds) | `arr[4]` | Yes | Modbus sensor poll period |
-| `0x21` | Temperature | sensor | No | From Modbus sensor |
-| `0x22` | Humidity | sensor | No | From Modbus sensor |
+| `0x21` | Temperature | sensor | No | From Modbus sensor when `TEMP_SENSOR=1`; else `0xFFFF` |
+| `0x22` | Humidity | sensor | No | From Modbus sensor when `TEMP_SENSOR=1`; else `0xFFFF` |
 | `0x23` | Mesh RSSI | Yes | No | Positive dBm (e.g. `-45` → `45`); `0` if no RSSI yet |
 | Other | — | — | — | Read returns `0xFFFF`; write → exception |
 

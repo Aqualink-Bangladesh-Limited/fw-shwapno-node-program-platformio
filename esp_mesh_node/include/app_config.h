@@ -3,12 +3,12 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-#define MESH_PREFIX "meshNetwork1"
-#define MESH_PASSWORD "meshPassword1"
-#define MESH_PORT 5551
-#define MESH_CHANNEL 1
+#define MESH_PREFIX "meshNetwork2"
+#define MESH_PASSWORD "meshPassword2"
+#define MESH_PORT 5552
+#define MESH_CHANNEL 6
 
-#define NODE_ID 04
+#define NODE_ID 12
 
 // #define CARRIER_01
 // #define GENERAL_01
@@ -32,14 +32,24 @@
 // #define BOARD_VERSION_03
 #define BOARD_VERSION_04
 
+/* 1 = external Modbus RTU temp/humidity sensor on Serial2; 0 = IR-only node */
+#define TEMP_SENSOR 1
+
+#if TEMP_SENSOR
 // #define SENSOR_VERSION_01
 #define SENSOR_VERSION_02
+#if !defined(SENSOR_VERSION_01) && !defined(SENSOR_VERSION_02)
+#error "TEMP_SENSOR requires SENSOR_VERSION_01 or SENSOR_VERSION_02"
+#endif
+#endif
 
 #define FIRMWARE_VERSION "20260624.1645"
 
+#if TEMP_SENSOR
 #define SLAVE_ID 1
 #define START_ADDRESS 0
 #define NUM_REGS 2
+#endif
 
 #define WATCHDOG_TIMEOUT 30
 #define MESH_INTERVAL (5 * 60 * 1000)
