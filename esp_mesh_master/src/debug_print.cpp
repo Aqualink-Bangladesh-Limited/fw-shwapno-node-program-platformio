@@ -49,6 +49,38 @@ bool debugShouldLogPacketDetails()
   return !isPortalActive();
 }
 
+static void printPortalPeriodicStatus()
+{
+  char portalSsid[32];
+  formatPortalSsid(portalSsid, sizeof(portalSsid));
+
+  debugLog("Mode: portal | AP %s | clients %u | OTA %s | heap %u",
+           portalSsid, (unsigned)WiFi.softAPgetStationNum(),
+           portalWeb_isOtaInProgress() ? "yes" : "no", (unsigned)ESP.getFreeHeap());
+}
+
+static void printBridgePeriodicStatus()
+{
+  debugLog("--- Master Status ---");
+  logMasterIdentity();
+
+  if (WiFi.status() == WL_CONNECTED)
+  {
+    const long rssi = WiFi.RSSI();
+
+    debugLog("Mode: Bridge");
+    debugLog("WiFi: %s", WiFi.SSID().c_str());
+    debugLog("IP: %s", WiFi.localIP().toString().c_str());
+    debugLog("RSSI: %ld dBm (%lu)", rssi, (unsigned long)(rssi * -1));
+  }
+  else
+  {
+    debugLog("Mode: Bridge");
+    debugLog("WiFi: %s (not connected)", WIFI_SSID);
+    debugLog("RSSI: N/A");
+  }
+}
+
 void printPacket(uint8_t *packet, int packetSize)
 {
   printPacket(static_cast<const uint8_t *>(packet), packetSize);
@@ -127,31 +159,9 @@ void printDebugInfo()
 {
   if (isPortalActive())
   {
-    char portalSsid[32];
-    formatPortalSsid(portalSsid, sizeof(portalSsid));
-
-    debugLog("Mode: portal | AP %s | clients %u | OTA %s | heap %u",
-             portalSsid, (unsigned)WiFi.softAPgetStationNum(),
-             portalWeb_isOtaInProgress() ? "yes" : "no", (unsigned)ESP.getFreeHeap());
+    printPortalPeriodicStatus();
     return;
   }
 
-  debugLog("--- Master Status ---");
-  logMasterIdentity();
-
-  if (WiFi.status() == WL_CONNECTED)
-  {
-    const long rssi = WiFi.RSSI();
-
-    debugLog("Mode: Bridge");
-    debugLog("WiFi: %s", WiFi.SSID().c_str());
-    debugLog("IP: %s", WiFi.localIP().toString().c_str());
-    debugLog("RSSI: %ld dBm (%lu)", rssi, (unsigned long)(rssi * -1));
-  }
-  else
-  {
-    debugLog("Mode: Bridge");
-    debugLog("WiFi: %s (not connected)", WIFI_SSID);
-    debugLog("RSSI: N/A");
-  }
+  printBridgePeriodicStatus();
 }

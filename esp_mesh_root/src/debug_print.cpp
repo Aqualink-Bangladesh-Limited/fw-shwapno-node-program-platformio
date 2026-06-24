@@ -237,7 +237,14 @@ void portalInfo()
   logPortalApDetails(portalSsid);
 }
 
-static void printMeshModeStatus()
+static void logPeriodicSummary()
+{
+  debugLog("Status: %s %s | uptime %lus | heap %u",
+           boardVersionString(), FIRMWARE_VERSION,
+           (unsigned long)(millis() / 1000UL), (unsigned)ESP.getFreeHeap());
+}
+
+static void printMeshPeriodicStatus()
 {
   const unsigned long uartIdleSec = secondsSince(lastReceivedTime);
   const unsigned long meshIdleSec = secondsSince(lastMeshReceivedTime);
@@ -265,7 +272,7 @@ static void printMeshModeStatus()
     debugLog("Reply queue: %u", (unsigned)packetQueue.size());
 }
 
-static void printPortalModeStatus()
+static void printPortalPeriodicStatus()
 {
   char portalSsid[32];
   formatPortalSsid(portalSsid, sizeof(portalSsid));
@@ -277,12 +284,13 @@ static void printPortalModeStatus()
 
 void printDebugInfo()
 {
-  debugLog("Status: %s %s | uptime %lus | heap %u",
-           boardVersionString(), FIRMWARE_VERSION,
-           (unsigned long)(millis() / 1000UL), (unsigned)ESP.getFreeHeap());
-
   if (isPortalActive())
-    printPortalModeStatus();
-  else
-    printMeshModeStatus();
+  {
+    logPeriodicSummary();
+    printPortalPeriodicStatus();
+    return;
+  }
+
+  logPeriodicSummary();
+  printMeshPeriodicStatus();
 }

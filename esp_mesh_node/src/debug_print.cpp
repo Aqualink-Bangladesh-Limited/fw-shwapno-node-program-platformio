@@ -2,6 +2,7 @@
 #include "debug_log.h"
 #include "app_config.h"
 #include "portal_handler.h"
+#include "portal_web.h"
 #include "mesh_handler.h"
 #include <WiFi.h>
 #include <Arduino.h>
@@ -110,6 +111,24 @@ void portalInfo()
   logPortalApDetails(portalSsid);
 }
 
+static void printPortalPeriodicStatus()
+{
+  char portalSsid[32];
+  formatPortalSsid(portalSsid, sizeof(portalSsid));
+
+  debugLog("Mode: portal | AP %s | clients %u | OTA %s | heap %u",
+           portalSsid, (unsigned)WiFi.softAPgetStationNum(),
+           portalWeb_isOtaInProgress() ? "yes" : "no", (unsigned)ESP.getFreeHeap());
+}
+
+static void printMeshPeriodicStatus()
+{
+  logNodeConfig();
+  debugLog("AC Set Temp: %d  AC Status: %d  AC Hit: %d  AC Cooldown: %d", arr[0], arr[1], arr[2], arr[3]);
+  debugLog("Sensor Temp: %d  Humidity: %d", temperature, humidity);
+  debugLog("RSSI : %d", mesh_rssi);
+}
+
 void printPacket(uint8_t *packet, int packetSize)
 {
   if (!debugShouldLogPacketDetails())
@@ -132,15 +151,9 @@ void printDebugInfo()
 {
   if (isPortalActive())
   {
-    char portalSsid[32];
-    formatPortalSsid(portalSsid, sizeof(portalSsid));
-    debugLog("Mode: portal | AP %s | clients %u | heap %u",
-             portalSsid, (unsigned)WiFi.softAPgetStationNum(), (unsigned)ESP.getFreeHeap());
+    printPortalPeriodicStatus();
     return;
   }
 
-  logNodeConfig();
-  debugLog("AC Set Temp: %d  AC Status: %d  AC Hit: %d  AC Cooldown: %d", arr[0], arr[1], arr[2], arr[3]);
-  debugLog("Sensor Temp: %d  Humidity: %d", temperature, humidity);
-  debugLog("RSSI : %d", mesh_rssi);
+  printMeshPeriodicStatus();
 }
