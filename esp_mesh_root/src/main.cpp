@@ -17,6 +17,7 @@
 #include "button_handler.h"
 #include "mesh_handler.h"
 #include "restart_guard.h"
+#include "ota_rollback.h"
 
 constexpr int MAX_PACKET_SIZE = 256;
 constexpr int MAX_QUEUE_SIZE = 20;
@@ -58,6 +59,7 @@ void setup()
 
   esp_task_wdt_deinit();
   debugLog("boot: setup start");
+  ota_rollback_early_check();
   restart_guard_init();
 
   Preferences prefs;
@@ -69,7 +71,13 @@ void setup()
       portalBootOnNextBoot = true;
       uint32_t nid = prefs.getUInt("nodeId", ROOT_ID);
       portalStoredDeviceId = (uint8_t)(nid & 0xFF);
-      prefs.putBool("portalBoot", false);
+    }
+    else if (ota_rollback_requires_portal_boot())
+    {
+      portalBootOnNextBoot = true;
+      uint32_t nid = prefs.getUInt("nodeId", ROOT_ID);
+      portalStoredDeviceId = (uint8_t)(nid & 0xFF);
+      debugLog("boot: pending OTA verify, forcing portal");
     }
     prefs.end();
   }
@@ -211,7 +219,6 @@ void handleMeshReceive(uint32_t from, String &msg)
   {
     const int slaveId = modbusPacket[6];
     lastSlaveSeen[slaveId] = millis();
-    restart_guard_note_activity();
 
     debugLog("Received message from node %u, slave id %d:", from, slaveId);
     printPacket(modbusPacket, modbusPacketSize);

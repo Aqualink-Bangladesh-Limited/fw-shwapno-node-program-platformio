@@ -20,10 +20,11 @@
 #define UDP_DEFAULT_PORT 12345
 static const uint8_t UDP_BROADCAST_IP[4] = {255, 255, 255, 255};
 
-#define FIRMWARE_VERSION "20260524.1200"
+#define FIRMWARE_VERSION "20260624.1645"
 
 #define PORTAL_PASSWORD "aqualink@321"
 #define PORTAL_TIMEOUT_MS (600 * ONE_SECOND) /* 10 min idle; disabled during OTA upload */
+#define PORTAL_OTA_VERIFY_MS (60UL * ONE_SECOND) /* hold exit/reboot while new firmware validates */
 #define DEBUG_LOG_BUFFER_BYTES 16384
 #define PORTAL_AP_IP_1 192
 #define PORTAL_AP_IP_2 168

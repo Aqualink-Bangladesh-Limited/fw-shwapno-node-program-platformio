@@ -5,6 +5,8 @@
 #include "data_type_conversion.h"
 #include "debug_print.h"
 #include "debug_log.h"
+#include "packet_filter.h"
+#include "restart_guard.h"
 
 painlessMesh mesh;
 long mesh_rssi = 0;
@@ -38,29 +40,30 @@ void receivedCallback(uint32_t from, String &msg)
   uint8_t modbusPacket[256];
   int modbusPacketSize = hexStringToByteArray(msg, modbusPacket);
 
-  /* Portal / OTA: FC 0x41 in MBAP frame (after IP:port prefix) */
-  if (modbusPacketSize >= 14 &&
-      modbusPacket[8] == 0 && modbusPacket[9] == 0 &&
-      modbusPacket[10] == 0 && modbusPacket[11] == 2 &&
-      modbusPacket[13] == PORTAL_TRIGGER_FC)
+  if (isPortalTriggerForNode(modbusPacket, modbusPacketSize))
   {
-    uint8_t targetNode = modbusPacket[12];
-    if (targetNode == NODE_ID)
-    {
-      portalRequested = true;
-      portalRequestTime = millis();
-      debugLog("Portal requested for this node.");
-    }
+    portalRequested = true;
+    portalRequestTime = millis();
+    debugLog("Portal requested for this node.");
     return;
   }
 
-  if (modbusPacketSize < 6)
+  int mbapLen = 0;
+  const uint8_t *mbap = getMbapPayload(modbusPacket, modbusPacketSize, &mbapLen);
+  if (mbap == nullptr || mbapLen < 6)
   {
     debugLog("Invalid packet size. Discarding.");
     return;
   }
 
-  uint8_t slaveId = modbusPacket[12]; // Slave ID is at position 12 in the Modbus TCP packet
+  const bool hasRoutePrefix = (mbap != modbusPacket);
+  if (!hasRoutePrefix)
+  {
+    debugLog("Invalid packet: missing route prefix. Discarding.");
+    return;
+  }
+
+  uint8_t slaveId = mbap[6];
 
   if (slaveId == NODE_ID)
   {
@@ -91,6 +94,7 @@ void receivedCallback(uint32_t from, String &msg)
     printPacket(responsePacket, len + 6);
 
     mesh.sendSingle(from, responseHexStr);
+    restart_guard_note_activity();
   }
 }
 

@@ -35,7 +35,7 @@
 // #define SENSOR_VERSION_01
 #define SENSOR_VERSION_02
 
-#define FIRMWARE_VERSION "20260520.1430"
+#define FIRMWARE_VERSION "20260624.1645"
 
 #define SLAVE_ID 1
 #define START_ADDRESS 0
@@ -50,6 +50,7 @@ extern uint16_t sensor_data[2];
 extern uint16_t temperature, humidity;
 #define PORTAL_PASSWORD "aqualink@321"
 #define PORTAL_TIMEOUT_MS (600 * ONE_SECOND) /* 10 min idle; disabled during OTA upload */
+#define PORTAL_OTA_VERIFY_MS (60UL * ONE_SECOND) /* hold exit/reboot while new firmware validates */
 /* Portal log ring buffer (RAM). 16 KB is safe on ESP32-S3 N8R2 (~200+ KB free heap in portal). */
 #define DEBUG_LOG_BUFFER_BYTES 16384
 /* AP address 192.168.4.1 (use IPAddress in portal_handler, not raw hex) */
@@ -58,6 +59,9 @@ extern uint16_t temperature, humidity;
 #define PORTAL_AP_IP_3 4
 #define PORTAL_AP_IP_4 1
 #define PORTAL_TRIGGER_FC 0x41 /* MBAP: ... 00 02 <nodeId> 41 -> start portal */
+
+#define MAX_CONSECUTIVE_IDLE_RESTARTS 10
+#define RESTART_TIMEOUT_MS (15UL * 60UL * 1000UL)
 
 /* Portal button: GPIO0 active LOW, 5s hold (BOARD_VERSION_04). Avoid held-low at power-on (strapping). */
 #define PORTAL_BUTTON_PIN 0

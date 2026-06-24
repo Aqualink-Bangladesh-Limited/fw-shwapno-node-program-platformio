@@ -2,6 +2,7 @@
 #include "app_config.h"
 #include "portal_handler.h"
 #include "debug_log.h"
+#include "ota_rollback.h"
 #include <AsyncTCP.h>
 #include <ESPAsyncWebServer.h>
 #include <Update.h>
@@ -74,19 +75,32 @@ static String buildStatusJson()
 {
   const unsigned pct = (otaTotalBytes > 0) ? (unsigned)((otaWrittenBytes * 100UL) / otaTotalBytes) : 0;
   const String msgEsc = escapeJson(otaMessage);
-  char buf[320];
+  const bool verifyHold = ota_rollback_is_verify_hold_active();
+  const unsigned verifyLeft = (unsigned)ota_rollback_verify_hold_seconds_left();
+  char buf[400];
   snprintf(buf, sizeof(buf),
            "{\"portalActive\":%s,\"otaInProgress\":%s,\"otaTotalBytes\":%u,"
            "\"otaWrittenBytes\":%u,\"otaPercent\":%u,\"otaMessage\":\"%s\","
-           "\"logCountHint\":%u}",
+           "\"logCountHint\":%u,\"otaVerifyHold\":%s,\"otaVerifySecondsLeft\":%u}",
            isPortalActive() ? "true" : "false",
            otaInProgress ? "true" : "false",
            (unsigned)otaTotalBytes,
            (unsigned)otaWrittenBytes,
            pct,
            msgEsc.c_str(),
-           (unsigned)debugLogGetBufferLength());
+           (unsigned)debugLogGetBufferLength(),
+           verifyHold ? "true" : "false",
+           verifyLeft);
   return String(buf);
+}
+
+static void sendVerifyHoldBlocked(AsyncWebServerRequest *request, const char *action)
+{
+  char body[120];
+  snprintf(body, sizeof(body),
+           "OTA verification in progress (%lus left). %s blocked until firmware is confirmed.",
+           ota_rollback_verify_hold_seconds_left(), action);
+  request->send(403, "text/plain", body);
 }
 
 static const char PORTAL_HTML[] PROGMEM = R"rawliteral(
@@ -129,7 +143,8 @@ static const char PORTAL_HTML[] PROGMEM = R"rawliteral(
               <button class='btn' id='uploadBtn' onclick='uploadFirmware()'>Upload firmware</button>
               <button class='btn secondary' onclick='refreshDashboard(true)'>Refresh now</button>
               <button class='btn danger' onclick='clearLogs()'>Clear logs</button>
-              <button class='btn secondary' onclick='exitPortal()'>Exit portal</button>
+              <button class='btn secondary' id='restartPortalBtn' onclick='restartPortal()'>Restart portal</button>
+              <button class='btn secondary' id='exitPortalBtn' onclick='exitPortal()'>Exit portal</button>
             </div>
             <div class='muted'>Firmware upload is streamed directly to flash. The page keeps refreshing log state every 5 seconds so you can leave it open during long updates.</div>
           </div>
@@ -153,11 +168,12 @@ static const char PORTAL_HTML[] PROGMEM = R"rawliteral(
     function setText(id,value){document.getElementById(id).textContent=value;}
     function appendLog(line){const row=document.createElement('div');row.className='logline';row.textContent=line;logBox.appendChild(row);while(logBox.children.length>400){logBox.removeChild(logBox.firstElementChild);}if(autoScroll){logBox.scrollTop=logBox.scrollHeight;}}
     function renderLogs(text){logBox.innerHTML='';if(!text){appendLog('No logs yet.');return;}text.split(/\n+/).forEach(line=>{if(line.trim().length)appendLog(line);});}
-    function updateState(state){setText('portalState',state.portalActive?'Active':'Inactive');setText('otaPercent',(state.otaPercent||0)+'%');setText('otaBytes',(state.otaWrittenBytes||0)+' / '+(state.otaTotalBytes||0));setText('otaMessage',state.otaMessage||'Idle');setText('statusText',state.otaInProgress?'OTA in progress':'Ready');document.getElementById('progressBar').style.width=(state.otaPercent||0)+'%';document.getElementById('progressBar').style.opacity=state.otaInProgress?1:.75;document.getElementById('uploadBtn').disabled=!!state.otaInProgress;document.getElementById('logSummary').textContent=(state.logCountHint||0)+' chars cached';}
+    function updateState(state){const verifyHold=!!state.otaVerifyHold;setText('portalState',verifyHold?('Verifying OTA ('+(state.otaVerifySecondsLeft||0)+'s)'):(state.portalActive?'Active':'Inactive'));setText('otaPercent',(state.otaPercent||0)+'%');setText('otaBytes',(state.otaWrittenBytes||0)+' / '+(state.otaTotalBytes||0));setText('otaMessage',verifyHold?('Confirming new firmware ('+(state.otaVerifySecondsLeft||0)+'s)...'):(state.otaMessage||'Idle'));setText('statusText',state.otaInProgress?'OTA in progress':(verifyHold?'Verifying firmware':'Ready'));document.getElementById('progressBar').style.width=(state.otaPercent||0)+'%';document.getElementById('progressBar').style.opacity=state.otaInProgress?1:.75;document.getElementById('uploadBtn').disabled=!!state.otaInProgress;const exitBtn=document.getElementById('exitPortalBtn');const restartBtn=document.getElementById('restartPortalBtn');if(exitBtn)exitBtn.disabled=verifyHold||!!state.otaInProgress;if(restartBtn)restartBtn.disabled=verifyHold||!!state.otaInProgress;document.getElementById('logSummary').textContent=(state.logCountHint||0)+' chars cached';}
     async function refreshDashboard(forceLogs){try{const status=await fetch('/status',{cache:'no-store'}).then(r=>r.json());updateState(status);if(forceLogs||!window._logLoaded){const logs=await fetch('/logs',{cache:'no-store'}).then(r=>r.text());renderLogs(logs);window._logLoaded=true;}}catch(e){setText('connText','Offline');}}
     async function clearLogs(){await fetch('/logs/clear',{method:'POST'});window._logLoaded=false;refreshDashboard(true);}
     function copyTextFallback(text){const ta=document.createElement('textarea');ta.value=text;ta.style.position='fixed';ta.style.left='-9999px';document.body.appendChild(ta);ta.focus();ta.select();try{document.execCommand('copy');return true;}catch(e){return false;}finally{document.body.removeChild(ta);}}
     async function copyLogs(){const btn=document.getElementById('copyLogsBtn');const prev=btn.textContent;btn.disabled=true;btn.textContent='Copying...';try{const logs=await fetch('/logs',{cache:'no-store'}).then(r=>r.text());if(!logs||!logs.trim()){alert('No logs to copy yet.');btn.textContent=prev;btn.disabled=false;return;}let ok=false;if(navigator.clipboard&&window.isSecureContext){await navigator.clipboard.writeText(logs);ok=true;}else{ok=copyTextFallback(logs);}btn.textContent=ok?'Copied!':'Copy failed';setTimeout(function(){btn.textContent=prev;btn.disabled=false;},1500);if(!ok)alert('Copy failed. Select logs manually from the box.');}catch(e){btn.textContent=prev;btn.disabled=false;alert('Copy failed.');}}
+    async function restartPortal(){try{const r=await fetch('/restart');alert(await r.text());}catch(e){alert('Restart failed');}}
     async function exitPortal(){try{const r=await fetch('/exit');alert(await r.text());}catch(e){alert('Exit failed');}}
     function connectWs(){if(ws&&(ws.readyState===WebSocket.OPEN||ws.readyState===WebSocket.CONNECTING))return;try{ws=new WebSocket((location.protocol==='https:'?'wss://':'ws://')+location.host+'/debug');ws.onopen=function(){setText('connText','Live logs');};ws.onclose=function(){setText('connText','Polling only');ws=null;};ws.onerror=function(){setText('connText','Polling only');};ws.onmessage=function(e){appendLog(e.data);};}catch(e){setText('connText','Polling only');}}
     function uploadFirmware(){const file=document.getElementById('file').files[0];if(!file){alert('Pick a firmware file first.');return;}if(refreshTimer){clearInterval(refreshTimer);refreshTimer=null;}const fd=new FormData();fd.append('update',file,file.name);const xhr=new XMLHttpRequest();xhr.open('POST','/update',true);xhr.timeout=600000;xhr.upload.onprogress=function(e){if(e.lengthComputable){const pct=Math.round((e.loaded/e.total)*100);setText('otaPercent',pct+'%');setText('otaBytes',e.loaded+' / '+e.total);document.getElementById('progressBar').style.width=pct+'%';setText('otaMessage','Uploading firmware... '+pct+'%');setText('statusText','Uploading');setText('connText','Uploading...');}};xhr.onerror=function(){setText('otaMessage','Upload failed (network error)');setText('connText','Upload failed');refreshTimer=setInterval(function(){refreshDashboard(true);},2000);connectWs();};xhr.onreadystatechange=function(){if(xhr.readyState===4){setText('otaMessage',xhr.responseText||'Upload finished.');refreshDashboard(true);if(!refreshTimer){refreshTimer=setInterval(function(){refreshDashboard(true);},2000);}connectWs();}};xhr.send(fd);setText('statusText','Uploading');}
@@ -293,8 +309,31 @@ void portalWeb_start()
     request->send(200, "text/plain", "ok");
   });
 
+  server->on("/restart", HTTP_GET, [](AsyncWebServerRequest *request) {
+    portal_touchActivity();
+    if (ota_rollback_is_verify_hold_active())
+    {
+      sendVerifyHoldBlocked(request, "Restart");
+      return;
+    }
+    Preferences prefs;
+    if (prefs.begin("portal", false))
+    {
+      prefs.putBool("portalBoot", true);
+      prefs.putUInt("nodeId", NODE_ID);
+      prefs.end();
+    }
+    request->send(200, "text/plain", "Restarting into portal mode...");
+    portal_schedule_ota_reboot();
+  });
+
   server->on("/exit", HTTP_GET, [](AsyncWebServerRequest *request) {
     portal_touchActivity();
+    if (ota_rollback_is_verify_hold_active())
+    {
+      sendVerifyHoldBlocked(request, "Exit");
+      return;
+    }
     request->send(200, "text/plain", "Rejoining mesh. Restarting...");
     portal_schedule_exit();
   });

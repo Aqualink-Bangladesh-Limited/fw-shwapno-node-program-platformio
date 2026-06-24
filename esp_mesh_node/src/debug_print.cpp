@@ -4,6 +4,7 @@
 #include "portal_handler.h"
 #include "portal_web.h"
 #include "mesh_handler.h"
+#include "restart_guard.h"
 #include <WiFi.h>
 #include <Arduino.h>
 
@@ -127,6 +128,10 @@ static void printMeshPeriodicStatus()
   debugLog("AC Set Temp: %d  AC Status: %d  AC Hit: %d  AC Cooldown: %d", arr[0], arr[1], arr[2], arr[3]);
   debugLog("Sensor Temp: %d  Humidity: %d", temperature, humidity);
   debugLog("RSSI : %d", mesh_rssi);
+  debugLog("Idle restart %u/%u%s",
+           (unsigned)restart_guard_get_count(),
+           (unsigned)MAX_CONSECUTIVE_IDLE_RESTARTS,
+           restart_guard_is_lockout() ? " LOCKOUT" : "");
 }
 
 void printPacket(uint8_t *packet, int packetSize)

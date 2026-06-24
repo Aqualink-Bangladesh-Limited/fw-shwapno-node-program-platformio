@@ -5,11 +5,11 @@
 #include "portal_handler.h"
 #include "app_config.h"
 #include "mesh_handler.h"
-#include "restart_guard.h"
 #include "debug_log.h"
 #include "debug_print.h"
 #include "portal_web.h"
 #include "led_handler.h"
+#include "ota_rollback.h"
 
 static bool portalActive = false;
 static volatile unsigned long lastActivity = 0;
@@ -20,7 +20,7 @@ static unsigned long portal_elapsed_ms(unsigned long now, unsigned long last)
   if (now >= last)
     return now - last;
   /* now < last: millis wrap (last very old) vs brief race (last just updated) */
-  if ((last - now) < 60000UL)
+  if ((last - now) < PORTAL_OTA_VERIFY_MS)
     return 0;
   return (ULONG_MAX - last) + now + 1;
 }
@@ -30,7 +30,7 @@ static bool portal_idle_timeout_expired(unsigned long now, unsigned long lastSna
   if (portalWeb_isOtaInProgress())
     return false;
   /* Ignore false triggers right after portal starts */
-  if (portalEnteredAt != 0 && portal_elapsed_ms(now, portalEnteredAt) < 60000UL)
+  if (portalEnteredAt != 0 && portal_elapsed_ms(now, portalEnteredAt) < PORTAL_OTA_VERIFY_MS)
     return false;
   return portal_elapsed_ms(now, lastSnap) >= PORTAL_TIMEOUT_MS;
 }
@@ -91,6 +91,13 @@ void exitPortalMode()
   if (!portalActive)
     return;
 
+  if (ota_rollback_is_verify_hold_active())
+  {
+    debugLog("portal: exit blocked, OTA verify %lus remaining",
+             ota_rollback_verify_hold_seconds_left());
+    return;
+  }
+
   portalActive = false;
   portalWeb_stop();
   delay(100);
@@ -99,7 +106,6 @@ void exitPortalMode()
   delay(200);
 
   debugLog("Exiting PORTAL MODE, restarting...");
-  restart_guard_clear();
   Preferences prefs;
   if (prefs.begin("portal", false))
   {
@@ -113,6 +119,8 @@ void portal_task()
 {
   if (!portalActive)
     return;
+
+  ota_rollback_portal_task();
 
   if (!portalWeb_isOtaInProgress())
   {
@@ -141,6 +149,13 @@ void portal_task()
 
 void portal_schedule_exit()
 {
+  if (ota_rollback_is_verify_hold_active())
+  {
+    debugLog("portal: exit blocked, OTA verify %lus remaining",
+             ota_rollback_verify_hold_seconds_left());
+    return;
+  }
+
   portalExitPending = true;
 }
 
@@ -156,7 +171,6 @@ void portal_process_deferred_actions()
     portalOtaRebootPending = false;
     portalActive = false;
     debugLog("OTA reboot (full chip reset, skip web teardown)");
-    restart_guard_clear();
     delay(500);
     ESP.restart();
   }
@@ -164,6 +178,14 @@ void portal_process_deferred_actions()
   if (portalExitPending)
   {
     portalExitPending = false;
+
+    if (ota_rollback_is_verify_hold_active())
+    {
+      debugLog("portal: deferred exit cancelled, OTA verify %lus remaining",
+               ota_rollback_verify_hold_seconds_left());
+      return;
+    }
+
     if (portalWeb_isOtaInProgress() && Update.isRunning())
       Update.abort();
     portalActive = false;
@@ -174,7 +196,6 @@ void portal_process_deferred_actions()
       prefs.end();
     }
     debugLog("Portal restarting (clean reset)...");
-    restart_guard_clear();
     delay(100);
     ESP.restart();
   }

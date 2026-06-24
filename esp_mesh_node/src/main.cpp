@@ -8,6 +8,8 @@
 #include <Preferences.h>
 #include "portal_handler.h"
 #include "button_handler.h"
+#include "restart_guard.h"
+#include "ota_rollback.h"
 
 uint16_t arr[5] = {0, 0, 0, 5, 30};
 uint16_t sensor_data[2] = {0xFFFF, 0xFFFF};
@@ -24,8 +26,6 @@ bool portalBootOnNextBoot = false;
 uint8_t portalStoredNodeId = NODE_ID;
 bool meshTrafficSeen = false;
 
-constexpr unsigned long RESTART_TIMEOUT = 900000; // 15 minutes
-
 void setup()
 {
   Serial.begin(115200);
@@ -34,6 +34,8 @@ void setup()
   // Disable Arduino default 5s idle WDT before long mesh/WiFi setup.
   esp_task_wdt_deinit();
   debugLog("boot: setup start");
+  ota_rollback_early_check();
+  restart_guard_init();
 
   // Post-OTA: re-enter portal for verification (before mesh starts).
   Preferences prefs;
@@ -45,7 +47,13 @@ void setup()
       portalBootOnNextBoot = true;
       uint32_t nid = prefs.getUInt("nodeId", NODE_ID);
       portalStoredNodeId = (uint8_t)(nid & 0xFF);
-      prefs.putBool("portalBoot", false);
+    }
+    else if (ota_rollback_requires_portal_boot())
+    {
+      portalBootOnNextBoot = true;
+      uint32_t nid = prefs.getUInt("nodeId", NODE_ID);
+      portalStoredNodeId = (uint8_t)(nid & 0xFF);
+      debugLog("boot: pending OTA verify, forcing portal");
     }
     prefs.end();
   }
@@ -135,9 +143,8 @@ void loop()
   }
 
   if (!isPortalActive() && meshTrafficSeen &&
-      currentMillis - lastMeshReceivedTime >= RESTART_TIMEOUT)
+      currentMillis - lastMeshReceivedTime >= RESTART_TIMEOUT_MS)
   {
-    debugLog("Mesh disconnected for 15 minutes. ESP Restarting.....");
-    ESP.restart();
+    restart_guard_request_idle_restart("no mesh RX for 15 min");
   }
 }

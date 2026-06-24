@@ -20,10 +20,11 @@
 #define WATCHDOG_TIMEOUT 30
 #define ONE_SECOND 1000
 
-#define FIRMWARE_VERSION "20260524.1200"
+#define FIRMWARE_VERSION "20260624.1645"
 
 #define PORTAL_PASSWORD "aqualink@321"
 #define PORTAL_TIMEOUT_MS (600 * ONE_SECOND)
+#define PORTAL_OTA_VERIFY_MS (60UL * ONE_SECOND) /* hold exit/reboot while new firmware validates */
 #define DEBUG_LOG_BUFFER_BYTES 16384
 #define PORTAL_AP_IP_1 192
 #define PORTAL_AP_IP_2 168

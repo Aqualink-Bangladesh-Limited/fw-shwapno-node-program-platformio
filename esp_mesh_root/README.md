@@ -134,11 +134,11 @@ Post-OTA: NVS flag re-enters portal once for verification, then exit returns to 
 | Condition | Behavior |
 |-----------|----------|
 | No UART **or** no mesh RX for **15 min** | Idle restart (counts toward limit) |
-| **10** consecutive idle restarts (NVS) | **Lockout** — no more auto-restart until healthy traffic or portal exit clears counter |
+| **10** consecutive idle restarts (NVS) | **Lockout** — no more auto-restart until healthy UART traffic from master |
 | UART packet or mesh Modbus RX | Clears consecutive idle restart count |
 | Portal exit / OTA reboot | Clears consecutive idle restart count |
 
-To recover from lockout: fix connectivity, send traffic, use portal exit, or power-cycle after fixing the root cause (counter clears on healthy activity).
+To recover from lockout: fix master↔root UART connectivity and send valid Modbus traffic (counter clears on successful UART RX). Portal exit and OTA reboot do **not** clear the counter.
 
 ## LED indicators (BOARD_VERSION_04)
 
