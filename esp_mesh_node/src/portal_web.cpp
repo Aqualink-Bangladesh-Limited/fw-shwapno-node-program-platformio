@@ -313,6 +313,8 @@ void portalWeb_start()
     portal_touchActivity();
     if (ota_rollback_is_verify_hold_active())
     {
+      debugLog("portal: restart blocked, OTA verify %lus remaining",
+               ota_rollback_verify_hold_seconds_left());
       sendVerifyHoldBlocked(request, "Restart");
       return;
     }
@@ -331,6 +333,8 @@ void portalWeb_start()
     portal_touchActivity();
     if (ota_rollback_is_verify_hold_active())
     {
+      debugLog("portal: exit blocked, OTA verify %lus remaining",
+               ota_rollback_verify_hold_seconds_left());
       sendVerifyHoldBlocked(request, "Exit");
       return;
     }
@@ -352,9 +356,18 @@ void portalWeb_start()
           return;
         }
 
+        if (otaWrittenBytes == 0)
+        {
+          setOtaMessage("Update failed");
+          debugLog("OTA failed: no data written");
+          request->send(400, "text/plain", "No firmware data received");
+          return;
+        }
+
         otaInProgress = false;
         debugLog("OTA complete, written=%u", (unsigned)otaWrittenBytes);
         setOtaMessage("OTA complete. Rebooting...");
+        ota_rollback_arm_verify_hold();
         Preferences prefs;
         if (prefs.begin("portal", false))
         {

@@ -8,6 +8,8 @@
 #include <Arduino.h>
 
 static constexpr uint8_t MAX_PENDING_BOOT_FAILS = 3;
+static constexpr const char *PORTAL_PREFS = "portal";
+static constexpr const char *KEY_OTA_VERIFY = "otaVerify";
 
 static bool runningImagePendingVerify()
 {
@@ -22,6 +24,27 @@ static bool runningImagePendingVerify()
   return state == ESP_OTA_IMG_PENDING_VERIFY;
 }
 
+static bool portalOtaVerifyFlagActive()
+{
+  Preferences prefs;
+  if (!prefs.begin(PORTAL_PREFS, true))
+    return false;
+
+  const bool active = prefs.getBool(KEY_OTA_VERIFY, false);
+  prefs.end();
+  return active;
+}
+
+static void setPortalOtaVerifyFlag(bool active)
+{
+  Preferences prefs;
+  if (prefs.begin(PORTAL_PREFS, false))
+  {
+    prefs.putBool(KEY_OTA_VERIFY, active);
+    prefs.end();
+  }
+}
+
 bool ota_rollback_requires_portal_boot()
 {
   return runningImagePendingVerify();
@@ -30,16 +53,30 @@ bool ota_rollback_requires_portal_boot()
 static void clearPortalBootFlag()
 {
   Preferences prefs;
-  if (prefs.begin("portal", false))
+  if (prefs.begin(PORTAL_PREFS, false))
   {
     prefs.putBool("portalBoot", false);
+    prefs.putBool(KEY_OTA_VERIFY, false);
     prefs.end();
   }
 }
 
+void ota_rollback_arm_verify_hold()
+{
+  setPortalOtaVerifyFlag(true);
+}
+
+void ota_rollback_clear_portal_flags()
+{
+  clearPortalBootFlag();
+}
+
 bool ota_rollback_is_verify_hold_active()
 {
-  if (!isPortalActive() || !runningImagePendingVerify())
+  if (!isPortalActive())
+    return false;
+
+  if (!runningImagePendingVerify() && !portalOtaVerifyFlagActive())
     return false;
 
   return (millis() - portal_enteredAtMs()) < PORTAL_OTA_VERIFY_MS;
@@ -115,6 +152,8 @@ void ota_rollback_early_check()
     return;
   }
 
+  setPortalOtaVerifyFlag(true);
+
   const esp_reset_reason_t reason = esp_reset_reason();
   if (!isCrashReset(reason))
   {
@@ -185,6 +224,11 @@ void ota_rollback_portal_task()
     {
       debugLog("ota_rollback: mark valid failed");
     }
+  }
+  else if (portalOtaVerifyFlagActive())
+  {
+    debugLog("ota_rollback: post-OTA verify window complete (60s in portal)");
+    clearPortalBootFlag();
   }
 
   markedValid = true;

@@ -84,6 +84,12 @@ void enterPortalMode(uint8_t nodeId)
   portalActive = true;
   portal_touchActivity();
 
+  if (ota_rollback_is_verify_hold_active())
+  {
+    debugLog("ota_rollback: post-OTA verify hold %lus — restart/exit blocked",
+             ota_rollback_verify_hold_seconds_left());
+  }
+
   led_handler();
 }
 
@@ -107,12 +113,7 @@ void exitPortalMode()
   delay(200);
 
   debugLog("Exiting PORTAL MODE, restarting...");
-  Preferences prefs;
-  if (prefs.begin("portal", false))
-  {
-    prefs.putBool("portalBoot", false);
-    prefs.end();
-  }
+  ota_rollback_clear_portal_flags();
   ESP.restart();
 }
 
@@ -190,12 +191,7 @@ void portal_process_deferred_actions()
     if (portalWeb_isOtaInProgress() && Update.isRunning())
       Update.abort();
     portalActive = false;
-    Preferences prefs;
-    if (prefs.begin("portal", false))
-    {
-      prefs.putBool("portalBoot", false);
-      prefs.end();
-    }
+    ota_rollback_clear_portal_flags();
     debugLog("Portal restarting (clean reset)...");
     delay(100);
     ESP.restart();
