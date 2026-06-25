@@ -38,6 +38,9 @@ void receivedCallback(uint32_t from, String &msg)
     return;
   }
 
+  if (msg.equals(MESH_DUMMY_BROADCAST_MSG))
+    return;
+
   uint8_t modbusPacket[256];
   int modbusPacketSize = hexStringToByteArray(msg, modbusPacket);
 

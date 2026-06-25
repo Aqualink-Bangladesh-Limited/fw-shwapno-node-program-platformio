@@ -149,7 +149,7 @@ void loop()
     if (now - lastDummyBroadcast >= DUMMY_BROADCAST_INTERVAL)
     {
       lastDummyBroadcast = now;
-      const String dummyMsg = "DUMMY_BROADCAST";
+      const String dummyMsg = MESH_DUMMY_BROADCAST_MSG;
       mesh.sendBroadcast(dummyMsg);
       debugLog("Broadcasted dummy message to mesh: %s", dummyMsg.c_str());
     }

@@ -7,6 +7,7 @@
 #define MESH_PASSWORD "meshPassword2"
 #define MESH_PORT 5552
 #define MESH_CHANNEL 6
+#define MESH_DUMMY_BROADCAST_MSG "DUMMY_BROADCAST"
 
 #define NODE_ID 12
 
