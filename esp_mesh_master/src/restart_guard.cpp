@@ -1,64 +1,100 @@
 #include "restart_guard.h"
 #include "app_config.h"
 #include "debug_log.h"
-#include <EEPROM.h>
+#include <Preferences.h>
 #include <Arduino.h>
 
-static int restartCount = 0;
-static bool restartHalted = false;
+static uint8_t consecutiveIdleRestarts = 0;
+static bool lockoutActive = false;
+
+static void saveCount()
+{
+  Preferences prefs;
+  if (prefs.begin("master_boot", false))
+  {
+    prefs.putUChar("consecIdle", consecutiveIdleRestarts);
+    prefs.end();
+  }
+}
 
 void restart_guard_init()
 {
-  EEPROM.begin(512);
-  restartCount = EEPROM.read(RESTART_COUNT_EEPROM_ADDR);
-  if (restartCount < 0 || restartCount > 255)
-    restartCount = 0;
-
-  restartHalted = (restartCount >= MAX_CONSECUTIVE_RESTARTS);
-  if (restartHalted)
+  Preferences prefs;
+  if (!prefs.begin("master_boot", false))
   {
-    debugLog("Restart guard: halted (%d consecutive restarts in EEPROM)", restartCount);
+    debugLog("restart_guard: NVS unavailable");
+    return;
+  }
+
+  consecutiveIdleRestarts = prefs.getUChar("consecIdle", 0);
+  prefs.end();
+
+  lockoutActive = consecutiveIdleRestarts >= MAX_CONSECUTIVE_IDLE_RESTARTS;
+
+  if (lockoutActive)
+  {
+    debugLog("restart_guard: LOCKOUT after %u consecutive idle restarts (max %u). "
+             "Auto-restart disabled.",
+             (unsigned)consecutiveIdleRestarts, (unsigned)MAX_CONSECUTIVE_IDLE_RESTARTS);
+  }
+  else if (consecutiveIdleRestarts > 0)
+  {
+    debugLog("restart_guard: %u consecutive idle restart(s) on record",
+             (unsigned)consecutiveIdleRestarts);
   }
 }
 
 void restart_guard_clear()
 {
-  restartCount = 0;
-  restartHalted = false;
-  EEPROM.write(RESTART_COUNT_EEPROM_ADDR, 0);
-  EEPROM.commit();
+  consecutiveIdleRestarts = 0;
+  lockoutActive = false;
+  saveCount();
 }
 
-bool restart_guard_is_halted()
+void restart_guard_note_activity()
 {
-  return restartHalted;
+  if (consecutiveIdleRestarts == 0 && !lockoutActive)
+    return;
+
+  restart_guard_clear();
+  debugLog("restart_guard: healthy activity, idle restart counter cleared");
 }
 
-void restart_guard_request(const char *reason)
+bool restart_guard_is_lockout()
 {
-  if (restartHalted)
+  return lockoutActive;
+}
+
+uint8_t restart_guard_get_count()
+{
+  return consecutiveIdleRestarts;
+}
+
+void restart_guard_request_idle_restart(const char *reason)
+{
+  if (consecutiveIdleRestarts >= MAX_CONSECUTIVE_IDLE_RESTARTS)
   {
-    debugLog("%s (auto-restart blocked, max %d reached)", reason ? reason : "restart",
-             MAX_CONSECUTIVE_RESTARTS);
+    lockoutActive = true;
+    static unsigned long lastWarnMs = 0;
+    const unsigned long now = millis();
+    if (now - lastWarnMs >= 60000UL)
+    {
+      lastWarnMs = now;
+      debugLog("restart_guard: idle restart blocked (%s). %u consecutive restarts.",
+               reason ? reason : "unknown",
+               (unsigned)consecutiveIdleRestarts);
+    }
     return;
   }
 
-  restartCount++;
-  if (restartCount > 255)
-    restartCount = 255;
+  consecutiveIdleRestarts++;
+  saveCount();
 
-  EEPROM.write(RESTART_COUNT_EEPROM_ADDR, static_cast<uint8_t>(restartCount));
-  EEPROM.commit();
+  debugLog("restart_guard: idle restart %u/%u (%s)",
+           (unsigned)consecutiveIdleRestarts,
+           (unsigned)MAX_CONSECUTIVE_IDLE_RESTARTS,
+           reason ? reason : "unknown");
 
-  if (restartCount < MAX_CONSECUTIVE_RESTARTS)
-  {
-    debugLog("%s - restarting (%d/%d)", reason ? reason : "restart", restartCount,
-             MAX_CONSECUTIVE_RESTARTS);
-    delay(200);
-    ESP.restart();
-  }
-
-  restartHalted = true;
-  debugLog("%s - max restarts (%d) reached; halting auto-restart", reason ? reason : "restart",
-           MAX_CONSECUTIVE_RESTARTS);
+  delay(100);
+  ESP.restart();
 }

@@ -35,7 +35,6 @@ static constexpr int MAX_QUEUE_SIZE = 20;
 
 static unsigned long lastConnectedTime = 0;
 static constexpr unsigned long WIFI_TIMEOUT = 300000;
-static constexpr unsigned long RESTART_TIMEOUT = 900000;
 static bool wifiConnected = false;
 static bool bridgeStarted = false;
 
@@ -84,7 +83,7 @@ static void connectToWiFi()
   if (millis() - lastConnectedTime < WIFI_TIMEOUT)
     return;
 
-  if (restart_guard_is_halted())
+  if (restart_guard_is_lockout())
   {
     static unsigned long lastRetryMs = 0;
     const unsigned long now = millis();
@@ -99,7 +98,7 @@ static void connectToWiFi()
   }
 
   debugLog("Failed to connect to Wi-Fi in 5 minutes.");
-  restart_guard_request("WiFi connect timeout");
+  restart_guard_request_idle_restart("WiFi connect timeout");
 }
 
 void bridge_init()
@@ -132,7 +131,6 @@ void bridge_wifi_update()
   wifiConnected = true;
   debugLog("Connected to Wi-Fi: %s", WiFi.SSID().c_str());
   debugLog("IP Address: %s", WiFi.localIP().toString().c_str());
-  restart_guard_clear();
   printDebugInfo();
 }
 
@@ -163,6 +161,7 @@ void bridge_process_udp_serial()
       portalRequested = true;
       portalRequestTime = currentMillis;
       lastUdpUpdateTime = currentMillis;
+      restart_guard_note_activity();
     }
     else if (isModbusRequestForMaster(udpBuffer, len))
     {
@@ -179,6 +178,7 @@ void bridge_process_udp_serial()
         udp.endPacket();
         ledUdpOn = true;
         lastUdpUpdateTime = currentMillis;
+        restart_guard_note_activity();
       }
     }
     else if (isValidPacket(udpBuffer, len))
@@ -196,6 +196,7 @@ void bridge_process_udp_serial()
 
       ledUdpOn = true;
       lastUdpUpdateTime = currentMillis;
+      restart_guard_note_activity();
     }
     else
     {
@@ -239,6 +240,7 @@ void bridge_process_udp_serial()
 
       ledRxtxOn = true;
       lastRxtxUpdateTime = currentMillis;
+      restart_guard_note_activity();
     }
     else
     {
@@ -275,11 +277,11 @@ void bridge_check_idle_restart()
 
   /* Restart only when BOTH legs are idle: avoids false reboot if only UDP flows
      (no mesh replies yet) or only serial flows without recent UDP ingress. */
-  const bool udpIdle = currentMillis - lastUdpUpdateTime > RESTART_TIMEOUT;
-  const bool serialIdle = currentMillis - lastRxtxUpdateTime > RESTART_TIMEOUT;
+  const bool udpIdle = currentMillis - lastUdpUpdateTime > RESTART_TIMEOUT_MS;
+  const bool serialIdle = currentMillis - lastRxtxUpdateTime > RESTART_TIMEOUT_MS;
 
   if (udpIdle && serialIdle)
-    restart_guard_request("Bridge idle 15min (no UDP and no UART)");
+    restart_guard_request_idle_restart("Bridge idle 15min (no UDP and no UART)");
 }
 
 void bridge_stop()

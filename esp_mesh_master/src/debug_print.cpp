@@ -3,9 +3,16 @@
 #include "app_config.h"
 #include "portal_handler.h"
 #include "portal_web.h"
+#include "bridge_handler.h"
+#include "restart_guard.h"
 #include <WiFi.h>
 #include <Arduino.h>
 #include <vector>
+
+static unsigned long secondsSince(unsigned long eventMs)
+{
+  return (millis() - eventMs) / 1000UL;
+}
 
 static const char *boardVersionString()
 {
@@ -59,25 +66,55 @@ static void printPortalPeriodicStatus()
            portalWeb_isOtaInProgress() ? "yes" : "no", (unsigned)ESP.getFreeHeap());
 }
 
+static void logPeriodicSummary()
+{
+  debugLog("Status: %s %s | master %u | uptime %lus | heap %u",
+           boardVersionString(), FIRMWARE_VERSION, (unsigned)MASTER_ID,
+           (unsigned long)(millis() / 1000UL), (unsigned)ESP.getFreeHeap());
+}
+
 static void printBridgePeriodicStatus()
 {
-  debugLog("--- Master Status ---");
-  logMasterIdentity();
-
   if (WiFi.status() == WL_CONNECTED)
   {
     const long rssi = WiFi.RSSI();
-
-    debugLog("Mode: Bridge");
-    debugLog("WiFi: %s", WiFi.SSID().c_str());
-    debugLog("IP: %s", WiFi.localIP().toString().c_str());
-    debugLog("RSSI: %ld dBm (%lu)", rssi, (unsigned long)(rssi * -1));
+    debugLog("Mode: bridge | %s | %s | RSSI %ld dBm (%lu)",
+             WiFi.SSID().c_str(), WiFi.localIP().toString().c_str(), rssi,
+             (unsigned long)(rssi * -1));
   }
   else
   {
-    debugLog("Mode: Bridge");
-    debugLog("WiFi: %s (not connected)", WIFI_SSID);
-    debugLog("RSSI: N/A");
+    debugLog("Mode: bridge | %s (not connected)", WIFI_SSID);
+  }
+
+  if (bridge_is_started())
+  {
+    const unsigned long udpIdleSec = secondsSince(bridge_last_udp_activity());
+    const unsigned long uartIdleSec = secondsSince(bridge_last_rxtx_activity());
+    debugLog("UDP idle %lus | UART idle %lus | idle restart %u/%u%s",
+             udpIdleSec, uartIdleSec,
+             (unsigned)restart_guard_get_count(),
+             (unsigned)MAX_CONSECUTIVE_IDLE_RESTARTS,
+             restart_guard_is_lockout() ? " LOCKOUT" : "");
+  }
+  else
+  {
+    debugLog("Idle restart %u/%u%s",
+             (unsigned)restart_guard_get_count(),
+             (unsigned)MAX_CONSECUTIVE_IDLE_RESTARTS,
+             restart_guard_is_lockout() ? " LOCKOUT" : "");
+  }
+}
+
+static void appendPacketHex(String &line, const uint8_t *packet, int packetSize)
+{
+  for (int i = 0; i < packetSize; i++)
+  {
+    char hexBuf[4];
+    snprintf(hexBuf, sizeof(hexBuf), "%02X", packet[i]);
+    line += hexBuf;
+    if (i < packetSize - 1)
+      line += ' ';
   }
 }
 
@@ -88,19 +125,12 @@ void printPacket(uint8_t *packet, int packetSize)
 
 void printPacket(const uint8_t *packet, int packetSize)
 {
-  if (!debugShouldLogPacketDetails())
+  if (!debugShouldLogPacketDetails() || !packet || packetSize <= 0)
     return;
 
   String line;
-  for (int i = 0; i < packetSize; i++)
-  {
-    if (packet[i] < 0x10)
-      line += "0";
-    char hexBuf[4];
-    snprintf(hexBuf, sizeof(hexBuf), "%02X", packet[i]);
-    line += hexBuf;
-    line += " ";
-  }
+  line.reserve(static_cast<size_t>(packetSize) * 3 + 8);
+  appendPacketHex(line, packet, packetSize);
   debugLog("%s", line.c_str());
 }
 
@@ -120,13 +150,11 @@ void debugLogPacket(const char *prefix, const uint8_t *packet, int packetSize)
 
   for (int i = 0; i < packetSize; i++)
   {
-    if (packet[i] < 0x10)
-      line += "0";
     char hexBuf[4];
     snprintf(hexBuf, sizeof(hexBuf), "%02X", packet[i]);
     line += hexBuf;
     if (i < packetSize - 1)
-      line += " ";
+      line += ' ';
   }
 
   debugLogText(line);
@@ -159,9 +187,11 @@ void printDebugInfo()
 {
   if (isPortalActive())
   {
+    logPeriodicSummary();
     printPortalPeriodicStatus();
     return;
   }
 
+  logPeriodicSummary();
   printBridgePeriodicStatus();
 }

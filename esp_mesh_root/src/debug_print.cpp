@@ -300,8 +300,8 @@ void portalInfo()
 
 static void logPeriodicSummary()
 {
-  debugLog("Status: %s %s | uptime %lus | heap %u",
-           boardVersionString(), FIRMWARE_VERSION,
+  debugLog("Status: %s %s | root %u | uptime %lus | heap %u",
+           boardVersionString(), FIRMWARE_VERSION, (unsigned)ROOT_ID,
            (unsigned long)(millis() / 1000UL), (unsigned)ESP.getFreeHeap());
 }
 
@@ -339,9 +339,9 @@ static void printPortalPeriodicStatus()
   char portalSsid[32];
   formatPortalSsid(portalSsid, sizeof(portalSsid));
 
-  debugLog("Mode: portal | AP %s | clients %u | OTA %s",
+  debugLog("Mode: portal | AP %s | clients %u | OTA %s | heap %u",
            portalSsid, (unsigned)WiFi.softAPgetStationNum(),
-           portalWeb_isOtaInProgress() ? "yes" : "no");
+           portalWeb_isOtaInProgress() ? "yes" : "no", (unsigned)ESP.getFreeHeap());
 }
 
 void printDebugInfo()

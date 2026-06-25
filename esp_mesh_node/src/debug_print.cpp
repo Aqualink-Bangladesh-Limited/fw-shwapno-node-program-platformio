@@ -114,6 +114,13 @@ void portalInfo()
   logPortalApDetails(portalSsid);
 }
 
+static void logPeriodicSummary()
+{
+  debugLog("Status: %s %s | node %u | uptime %lus | heap %u",
+           boardVersionString(), FIRMWARE_VERSION, (unsigned)NODE_ID,
+           (unsigned long)(millis() / 1000UL), (unsigned)ESP.getFreeHeap());
+}
+
 static void printPortalPeriodicStatus()
 {
   char portalSsid[32];
@@ -148,12 +155,11 @@ void printPacket(uint8_t *packet, int packetSize)
   String line;
   for (int i = 0; i < packetSize; i++)
   {
-    if (packet[i] < 0x10)
-      line += "0";
     char hexBuf[4];
     snprintf(hexBuf, sizeof(hexBuf), "%02X", packet[i]);
     line += hexBuf;
-    line += " ";
+    if (i < packetSize - 1)
+      line += ' ';
   }
   debugLog("%s", line.c_str());
 }
@@ -162,9 +168,11 @@ void printDebugInfo()
 {
   if (isPortalActive())
   {
+    logPeriodicSummary();
     printPortalPeriodicStatus();
     return;
   }
 
+  logPeriodicSummary();
   printMeshPeriodicStatus();
 }

@@ -19,11 +19,13 @@ uint8_t hexCharToByte(char hex) {
 
 String convertHexToString(uint8_t* packet, int packetSize) {
     String hexStr = "";
+    hexStr.reserve(static_cast<unsigned>(packetSize) * 3);
     for (int i = 0; i < packetSize; i++) {
-        if (packet[i] < 0x10) hexStr += "0";
-        String byteHex = String(packet[i], HEX);
-        byteHex.toUpperCase();
-        hexStr += byteHex + " ";
+        char hexBuf[4];
+        snprintf(hexBuf, sizeof(hexBuf), "%02X", packet[i]);
+        hexStr += hexBuf;
+        if (i < packetSize - 1)
+            hexStr += ' ';
     }
     return hexStr;
 }
