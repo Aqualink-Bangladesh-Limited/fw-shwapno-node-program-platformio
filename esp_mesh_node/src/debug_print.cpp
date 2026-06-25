@@ -110,7 +110,7 @@ void portalInfo()
 
   debugLog("Portal opened (mesh was running)");
   logNodeConfig();
-  meshInfo();
+  debugLog("Node ID: %u", (unsigned)NODE_ID);
   logPortalApDetails(portalSsid);
 }
 
@@ -131,20 +131,30 @@ static void printPortalPeriodicStatus()
            portalWeb_isOtaInProgress() ? "yes" : "no", (unsigned)ESP.getFreeHeap());
 }
 
-static void printMeshPeriodicStatus()
+static void logAcAndSensorStatus()
 {
-  logNodeConfig();
   debugLog("AC Set Temp: %d  AC Status: %d  AC Hit: %d  AC Cooldown: %d", arr[0], arr[1], arr[2], arr[3]);
 #if TEMP_SENSOR
   debugLog("Sensor Temp: %d  Humidity: %d", temperature, humidity);
 #else
   debugLog("Sensor: not fitted");
 #endif
-  debugLog("RSSI : %d", mesh_rssi);
+}
+
+static void logIdleRestartStatus()
+{
   debugLog("Idle restart %u/%u%s",
            (unsigned)restart_guard_get_count(),
            (unsigned)MAX_CONSECUTIVE_IDLE_RESTARTS,
            restart_guard_is_lockout() ? " LOCKOUT" : "");
+}
+
+static void printMeshPeriodicStatus()
+{
+  logNodeConfig();
+  logAcAndSensorStatus();
+  debugLog("RSSI : %d", mesh_rssi);
+  logIdleRestartStatus();
 }
 
 void printPacket(uint8_t *packet, int packetSize)
@@ -170,6 +180,8 @@ void printDebugInfo()
   {
     logPeriodicSummary();
     printPortalPeriodicStatus();
+    logAcAndSensorStatus();
+    logIdleRestartStatus();
     return;
   }
 

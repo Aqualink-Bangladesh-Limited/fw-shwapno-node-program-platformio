@@ -60,8 +60,11 @@ void enterPortalMode(uint8_t deviceId)
   if (mesh_handler_is_started())
     mesh_handler_stop();
 
-  WiFi.mode(WIFI_OFF);
-  delay(200);
+  if (WiFi.getMode() != WIFI_OFF)
+  {
+    WiFi.mode(WIFI_OFF);
+    delay(200);
+  }
   WiFi.mode(WIFI_AP);
   WiFi.setSleep(false);
 

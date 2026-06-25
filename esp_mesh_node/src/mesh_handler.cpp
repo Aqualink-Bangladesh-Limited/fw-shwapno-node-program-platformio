@@ -1,6 +1,7 @@
 #include "app_config.h"
 #include <painlessMesh.h>
 #include <WiFi.h>
+#include <esp_task_wdt.h>
 #include "request_handler.h"
 #include "data_type_conversion.h"
 #include "debug_print.h"
@@ -118,15 +119,21 @@ void mesh_stop()
     return;
 
   debugLog("mesh stop...");
+  mesh.onReceive(nullptr);
   mesh.stop();
+
   const unsigned long deadline = millis() + 5000;
   while (millis() < deadline)
   {
-    mesh.update();
+    yield();
     delay(50);
+    esp_task_wdt_reset();
   }
+
   WiFi.disconnect(true, true);
   delay(500);
+  WiFi.mode(WIFI_OFF);
+  delay(200);
   meshStarted = false;
   debugLog("mesh stopped");
 }
