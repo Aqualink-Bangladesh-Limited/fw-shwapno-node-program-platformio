@@ -83,46 +83,32 @@ static void logDeviceIdentity()
   debugLog("Root ID %u, slaves %d-%d", (unsigned)ROOT_ID, START_NODE, END_NODE);
 }
 
-static void logSlaveMapSnapshot()
+static void logNodeMap()
 {
   if (slaveIdToNodeId.empty())
   {
-    debugLog("Slaves paired: none");
+    debugLog("Node map: none");
     return;
   }
 
   for (const auto &pair : slaveIdToNodeId)
-    debugLog("Slaves paired: slave %d -> node %u", pair.first, pair.second);
+  {
+    const bool online = isMeshNodeOnline(pair.second);
+    debugLog("Node map: nodeId %d -> meshId %u (%s)",
+             pair.first, pair.second, online ? "online" : "offline");
+  }
 }
 
-static void logMeshPeers()
+static void logUnpairedPeers()
 {
   if (!mesh_handler_is_started())
-  {
-    debugLog("Peers: mesh stopped");
     return;
-  }
 
   const std::list<uint32_t> nodeList = mesh.getNodeList();
-  if (nodeList.empty())
-  {
-    debugLog("Peers: none");
-    return;
-  }
-
   for (uint32_t meshNodeId : nodeList)
   {
-    const int slaveId = slaveIdForMeshNode(meshNodeId);
-    if (slaveId >= 0)
-      debugLog("Peer: node %u, slave %d", meshNodeId, slaveId);
-    else
-      debugLog("Peer: node %u, slave ?", meshNodeId);
-  }
-
-  for (const auto &pair : slaveIdToNodeId)
-  {
-    if (!isMeshNodeOnline(pair.second))
-      debugLog("Offline: slave %d, node %u", pair.first, pair.second);
+    if (slaveIdForMeshNode(meshNodeId) < 0)
+      debugLog("Unpaired peer: meshId %u", meshNodeId);
   }
 }
 
@@ -204,16 +190,91 @@ void printMeshInfo()
            MESH_PREFIX, MESH_PASSWORD, (unsigned)MESH_PORT, (unsigned)MESH_CHANNEL);
 }
 
+static void appendMeshTreeIndent(String &out, unsigned depth)
+{
+  for (unsigned i = 0; i < depth; ++i)
+    out += "  ";
+}
+
+static void appendMeshTreeJson(String &out, const painlessmesh::protocol::NodeTree &tree,
+                               unsigned depth)
+{
+  appendMeshTreeIndent(out, depth);
+  out += "{\n";
+
+  appendMeshTreeIndent(out, depth + 1);
+  out += "\"meshId\": ";
+  out += tree.nodeId;
+
+  if (tree.root)
+  {
+    out += ",\n";
+    appendMeshTreeIndent(out, depth + 1);
+    out += "\"rootId\": ";
+    out += static_cast<unsigned>(ROOT_ID);
+    out += ",\n";
+    appendMeshTreeIndent(out, depth + 1);
+    out += "\"root\": true";
+  }
+  else
+  {
+    const int routingNodeId = slaveIdForMeshNode(tree.nodeId);
+    if (routingNodeId >= 0)
+    {
+      out += ",\n";
+      appendMeshTreeIndent(out, depth + 1);
+      out += "\"nodeId\": ";
+      out += routingNodeId;
+    }
+
+    out += ",\n";
+    appendMeshTreeIndent(out, depth + 1);
+    out += "\"online\": ";
+    out += isMeshNodeOnline(tree.nodeId) ? "true" : "false";
+  }
+
+  if (!tree.subs.empty())
+  {
+    out += ",\n";
+    appendMeshTreeIndent(out, depth + 1);
+    out += "\"subs\": [\n";
+
+    size_t idx = 0;
+    const size_t count = tree.subs.size();
+    for (const auto &sub : tree.subs)
+    {
+      appendMeshTreeJson(out, sub, depth + 2);
+      if (++idx < count)
+        out += ",\n";
+      else
+        out += '\n';
+    }
+
+    appendMeshTreeIndent(out, depth + 1);
+    out += ']';
+  }
+
+  out += '\n';
+  appendMeshTreeIndent(out, depth);
+  out += '}';
+}
+
 void printMeshLayout()
 {
-  debugLogText(mesh.subConnectionJson(true));
+  if (!mesh_handler_is_started())
+  {
+    debugLogText("{}");
+    return;
+  }
+
+  String json;
+  json.reserve(512);
+  appendMeshTreeJson(json, mesh.asNodeTree(), 0);
+  debugLogText(json);
 }
 
 void printConnectedNodes()
 {
-  if (mesh_handler_is_started())
-    debugLog("Root mesh node: %u", mesh.getNodeId());
-  logMeshPeers();
   printMeshLayout();
 }
 
@@ -233,7 +294,7 @@ void portalInfo()
   debugLog("Portal opened (mesh was running)");
   logDeviceIdentity();
   printMeshInfo();
-  logSlaveMapSnapshot();
+  logNodeMap();
   logPortalApDetails(portalSsid);
 }
 
@@ -261,7 +322,8 @@ static void printMeshPeriodicStatus()
            mesh_rssi, (unsigned)ROOT_REG_MESH_RSSI, (unsigned)meshRssiRegisterValue(),
            uartIdleSec, meshIdleSec);
 
-  logMeshPeers();
+  logNodeMap();
+  logUnpairedPeers();
 
   debugLog("Idle restart %u/%u%s",
            (unsigned)restart_guard_get_count(),
