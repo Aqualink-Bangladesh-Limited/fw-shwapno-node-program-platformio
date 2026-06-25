@@ -85,7 +85,7 @@ void enterPortalMode(uint8_t deviceId)
 
   if (ota_rollback_is_verify_hold_active())
   {
-    debugLog("ota_rollback: post-OTA verify hold %lus — restart/exit blocked",
+    debugLog("ota_rollback: post-OTA verify hold %lus, restart/exit blocked",
              ota_rollback_verify_hold_seconds_left());
   }
 

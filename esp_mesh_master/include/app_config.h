@@ -4,10 +4,10 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-#define MASTER_ID 201
+#define MASTER_ID 202
 
 // WiFi credentials (STA bridge mode)
-#define WIFI_SSID "Aqualink_BD_LTD"
+#define WIFI_SSID "Aqualink_Sensometer"
 #define WIFI_PASSWORD "aqualink@321"
 
 // #define BOARD_VERSION_03
@@ -20,7 +20,7 @@
 #define UDP_DEFAULT_PORT 12345
 static const uint8_t UDP_BROADCAST_IP[4] = {255, 255, 255, 255};
 
-#define FIRMWARE_VERSION "20260624.1645"
+#define FIRMWARE_VERSION "20260625.1613"
 
 #define PORTAL_PASSWORD "aqualink@321"
 #define PORTAL_TIMEOUT_MS (600 * ONE_SECOND) /* 10 min idle; disabled during OTA upload */
@@ -51,9 +51,8 @@ static const uint8_t UDP_BROADCAST_IP[4] = {255, 255, 255, 255};
 #define DEBUG_PRINT_INTERVAL_BRIDGE_MS (5 * ONE_SECOND)
 #define DEBUG_PRINT_INTERVAL_PORTAL_MS (5 * ONE_SECOND)
 
-/* Consecutive auto-restart limit (EEPROM); cleared on successful Wi-Fi connect */
-#define RESTART_COUNT_EEPROM_ADDR 0
-#define MAX_CONSECUTIVE_RESTARTS 10
+#define MAX_CONSECUTIVE_IDLE_RESTARTS 10
+#define RESTART_TIMEOUT_MS (15UL * 60UL * 1000UL)
 
 extern bool portalRequested;
 extern unsigned long portalRequestTime;

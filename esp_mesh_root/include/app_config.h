@@ -4,7 +4,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-#define ROOT_ID 221
+#define ROOT_ID 222
 
 #define MESH_PREFIX "meshNetwork2"
 #define MESH_PASSWORD "meshPassword2"
@@ -14,13 +14,13 @@
 // #define BOARD_VERSION_03
 #define BOARD_VERSION_04
 
-#define START_NODE 8
-#define END_NODE 15
+#define START_NODE 11
+#define END_NODE 18
 
 #define WATCHDOG_TIMEOUT 30
 #define ONE_SECOND 1000
 
-#define FIRMWARE_VERSION "20260624.1645"
+#define FIRMWARE_VERSION "20260625.1613"
 
 #define PORTAL_PASSWORD "aqualink@321"
 #define PORTAL_TIMEOUT_MS (600 * ONE_SECOND)

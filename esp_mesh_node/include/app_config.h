@@ -43,7 +43,7 @@
 #endif
 #endif
 
-#define FIRMWARE_VERSION "20260624.1645"
+#define FIRMWARE_VERSION "20260625.1613"
 
 #if TEMP_SENSOR
 #define SLAVE_ID 1
