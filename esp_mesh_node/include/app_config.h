@@ -8,7 +8,7 @@
 #define MESH_PORT 5552
 #define MESH_CHANNEL 6
 
-#define NODE_ID 12
+#define NODE_ID 11
 
 // #define CARRIER_01
 // #define GENERAL_01
@@ -33,7 +33,7 @@
 #define BOARD_VERSION_04
 
 /* 1 = external Modbus RTU temp/humidity sensor on Serial2; 0 = IR-only node */
-#define TEMP_SENSOR 0
+#define TEMP_SENSOR 1
 
 #if TEMP_SENSOR
 // #define SENSOR_VERSION_01
@@ -43,7 +43,9 @@
 #endif
 #endif
 
-#define FIRMWARE_VERSION "20260625.1613"
+#define FIRMWARE_VERSION "20260629.1440"
+
+#define MESH_DUMMY_BROADCAST_MSG "DUMMY_BROADCAST"
 
 #if TEMP_SENSOR
 #define SLAVE_ID 1
@@ -105,8 +107,6 @@ extern uint16_t temperature, humidity;
 #define LED_NO_RSSI_PAUSE_MS 2800
 #define LED_PORTAL_SIGNAL_MS 200
 #define LED_AC_OFF_BLINK_MS 500
-
-#define MESH_DUMMY_BROADCAST_MSG "DUMMY_BROADCAST"
 
 extern bool portalRequested;
 extern unsigned long portalRequestTime;
