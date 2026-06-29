@@ -62,7 +62,7 @@ void setup()
   debugLog("boot: modbus_init");
   modbus_init();
 #else
-  debugLog("boot: no temp sensor (TEMP_SENSOR=0)");
+  debugLog("boot: temp sensor disabled (TEMP_SENSOR=0)");
 #endif
 
   pinMode(LED_MESH_SIGNAL_STATUS, OUTPUT);

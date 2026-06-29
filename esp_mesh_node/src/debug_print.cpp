@@ -70,7 +70,7 @@ static const char *boardVersionString()
 static const char *sensorVersionString()
 {
 #if !TEMP_SENSOR
-  return "none";
+  return "disabled";
 #elif defined(SENSOR_VERSION_01)
   return "V01";
 #elif defined(SENSOR_VERSION_02)
@@ -137,7 +137,8 @@ static void logAcAndSensorStatus()
 #if TEMP_SENSOR
   debugLog("Sensor Temp: %d  Humidity: %d", temperature, humidity);
 #else
-  debugLog("Sensor: not fitted");
+  if (isPortalActive())
+    debugLog("Sensor: disabled");
 #endif
 }
 

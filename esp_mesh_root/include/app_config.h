@@ -36,9 +36,9 @@
 /* Root holding registers (Modbus FC 0x03, unit ID = ROOT_ID) */
 #define ROOT_REG_MESH_RSSI 0x01
 
-/* Portal button: GPIO0 active LOW, 5s hold. Avoid held-low at power-on (strapping). */
+/* Portal button: GPIO0 active LOW, 3s hold. Avoid held-low at power-on (strapping). */
 #define PORTAL_BUTTON_PIN 0
-#define PORTAL_BUTTON_HOLD_MS (5 * ONE_SECOND)
+#define PORTAL_BUTTON_HOLD_MS (3 * ONE_SECOND)
 #define PORTAL_BUTTON_DEBOUNCE_MS 50
 
 /*

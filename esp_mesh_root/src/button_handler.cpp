@@ -3,6 +3,9 @@
 #include "portal_handler.h"
 #include "debug_log.h"
 
+static constexpr uint8_t PORTAL_BUTTON_HOLD_SEC =
+    (uint8_t)(PORTAL_BUTTON_HOLD_MS / ONE_SECOND);
+
 static bool buttonStablePressed(unsigned long now)
 {
   static bool lastRaw = false;
@@ -25,7 +28,8 @@ static bool buttonStablePressed(unsigned long now)
 void button_init()
 {
   pinMode(PORTAL_BUTTON_PIN, INPUT_PULLUP);
-  debugLog("portal button: ready on GPIO%d (hold 5s for OTA portal)", PORTAL_BUTTON_PIN);
+  debugLog("portal button: ready on GPIO%d (hold %us for OTA portal)",
+           PORTAL_BUTTON_PIN, (unsigned)PORTAL_BUTTON_HOLD_SEC);
 }
 
 void button_task()
@@ -63,13 +67,14 @@ void button_task()
     holding = true;
     holdStartMs = now;
     lastSecondLogged = 0;
-    debugLog("portal button: pressed (hold 5s to open OTA portal)");
+    debugLog("portal button: pressed (hold %us to open OTA portal)",
+             (unsigned)PORTAL_BUTTON_HOLD_SEC);
     return;
   }
 
   const uint8_t heldSec = (uint8_t)((now - holdStartMs) / 1000UL);
 
-  for (uint8_t sec = 1; sec <= 5; sec++)
+  for (uint8_t sec = 1; sec <= PORTAL_BUTTON_HOLD_SEC; sec++)
   {
     if (heldSec < sec || lastSecondLogged >= sec)
       continue;
@@ -77,9 +82,10 @@ void button_task()
     lastSecondLogged = sec;
     debugLog("portal button: hold %u s", (unsigned)sec);
 
-    if (sec == 5)
+    if (sec == PORTAL_BUTTON_HOLD_SEC)
     {
-      debugLog("portal button: 5s complete - enabling portal mode");
+      debugLog("portal button: %us complete - enabling portal mode",
+               (unsigned)PORTAL_BUTTON_HOLD_SEC);
       extern bool portalRequested;
       extern unsigned long portalRequestTime;
       portalRequested = true;

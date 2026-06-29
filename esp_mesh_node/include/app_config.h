@@ -7,7 +7,6 @@
 #define MESH_PASSWORD "meshPassword2"
 #define MESH_PORT 5552
 #define MESH_CHANNEL 6
-#define MESH_DUMMY_BROADCAST_MSG "DUMMY_BROADCAST"
 
 #define NODE_ID 12
 
@@ -34,7 +33,7 @@
 #define BOARD_VERSION_04
 
 /* 1 = external Modbus RTU temp/humidity sensor on Serial2; 0 = IR-only node */
-#define TEMP_SENSOR 1
+#define TEMP_SENSOR 0
 
 #if TEMP_SENSOR
 // #define SENSOR_VERSION_01
@@ -74,9 +73,9 @@ extern uint16_t temperature, humidity;
 #define MAX_CONSECUTIVE_IDLE_RESTARTS 10
 #define RESTART_TIMEOUT_MS (15UL * 60UL * 1000UL)
 
-/* Portal button: GPIO0 active LOW, 5s hold (BOARD_VERSION_04). Avoid held-low at power-on (strapping). */
+/* Portal button: GPIO0 active LOW, 3s hold (BOARD_VERSION_04). Avoid held-low at power-on (strapping). */
 #define PORTAL_BUTTON_PIN 0
-#define PORTAL_BUTTON_HOLD_MS (5 * ONE_SECOND)
+#define PORTAL_BUTTON_HOLD_MS (3 * ONE_SECOND)
 #define PORTAL_BUTTON_DEBOUNCE_MS 50
 
 /*
@@ -106,6 +105,8 @@ extern uint16_t temperature, humidity;
 #define LED_NO_RSSI_PAUSE_MS 2800
 #define LED_PORTAL_SIGNAL_MS 200
 #define LED_AC_OFF_BLINK_MS 500
+
+#define MESH_DUMMY_BROADCAST_MSG "DUMMY_BROADCAST"
 
 extern bool portalRequested;
 extern unsigned long portalRequestTime;

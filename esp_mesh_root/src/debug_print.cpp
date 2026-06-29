@@ -282,8 +282,9 @@ void rootInfo()
 {
   logDeviceIdentity();
   printMeshInfo();
-  debugLog("Portal: off (UART FC 0x41 to root %u, or GPIO%d 5s)",
-           (unsigned)ROOT_ID, PORTAL_BUTTON_PIN);
+  debugLog("Portal: off (UART FC 0x41 to root %u, or GPIO%d %us)",
+           (unsigned)ROOT_ID, PORTAL_BUTTON_PIN,
+           (unsigned)(PORTAL_BUTTON_HOLD_MS / ONE_SECOND));
 }
 
 void portalInfo()

@@ -35,9 +35,9 @@ static const uint8_t UDP_BROADCAST_IP[4] = {255, 255, 255, 255};
 /* Master holding registers (Modbus FC 0x03, unit ID = MASTER_ID) */
 #define MASTER_REG_WIFI_RSSI 0x01
 
-/* Portal button: GPIO0 active LOW, 5s hold. Avoid held-low at power-on (strapping). */
+/* Portal button: GPIO0 active LOW, 3s hold. Avoid held-low at power-on (strapping). */
 #define PORTAL_BUTTON_PIN 0
-#define PORTAL_BUTTON_HOLD_MS (5 * ONE_SECOND)
+#define PORTAL_BUTTON_HOLD_MS (3 * ONE_SECOND)
 #define PORTAL_BUTTON_DEBOUNCE_MS 50
 
 /*
