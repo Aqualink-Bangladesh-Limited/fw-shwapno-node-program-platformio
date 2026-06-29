@@ -16,9 +16,9 @@ Firmware for an ESP32-S3 mesh leaf node (Modbus sensors, IR AC control, captive-
 | `MESH_PREFIX`, `MESH_PASSWORD`, `MESH_PORT`, `MESH_CHANNEL` | Must match root |
 | One AC brand `#define` | e.g. `QUNDA_01` — selects IR raw codes in `ir_raw_data.cpp` |
 | `BOARD_VERSION_*` | LED and peripheral pins |
-| `TEMP_SENSOR` | `1` = poll external Modbus RTU sensor; `0` = IR-only node (no Serial2 sensor) |
+| `TEMP_SENSOR` | `1` = poll external Modbus RTU sensor on Serial2; `0` = IR-only (logs show `Sensor: disabled`) |
 | `SENSOR_VERSION_*` | Required when `TEMP_SENSOR` is `1` — sensor register layout |
-| `SLAVE_ID` | Modbus slave ID of the temp/humidity sensor (when fitted) |
+| `SLAVE_ID` | Modbus slave ID of the temp/humidity sensor (when `TEMP_SENSOR=1`) |
 | `FIRMWARE_VERSION` | Release label (portal logs, debug) |
 | `PORTAL_PASSWORD` | Captive portal AP password |
 
@@ -72,7 +72,7 @@ Register read/write is unchanged; `0x41` is the only new command.
 
 ### Portal trigger example
 
-Target **node 4**, transaction ID `1`:
+Target **`NODE_ID`**, transaction ID `1` (example: node `4` → `04`):
 
 ```text
 00 01 00 00 00 02 04 41
@@ -83,13 +83,22 @@ Target **node 4**, transaction ID `1`:
 
 Send as UDP payload to the mesh **master**. Master prepends client IP/port; root routes on byte 12; the matching node sets `portalRequested` and enters portal mode.
 
-**Portal AP:** SSID `OTA-NODE-<nodeId>` (e.g. `OTA-NODE-4`), password `PORTAL_PASSWORD`, IP `192.168.4.1`. Open `http://192.168.4.1/` if the captive-portal popup does not appear.
+**Portal AP:** SSID `OTA-NODE-<NODE_ID>`, password `PORTAL_PASSWORD`, IP `192.168.4.1`. Open `http://192.168.4.1/` if the captive-portal popup does not appear.
 
-**Local button:** GPIO **0**, active **LOW**, hold **5 s** (serial logs at 1s-5s, then portal starts). Ignored while already in portal. Avoid holding the button low at power-on (ESP32 strapping pin).
+**Local button:** GPIO **0**, active **LOW**, hold **3 s** (serial logs at 1 s–3 s, then portal starts). Ignored while already in portal. Avoid holding the button low at power-on (ESP32 strapping pin).
 
-**Web UI:** firmware upload, live logs (WebSocket + polling), **Copy logs**, clear logs, exit portal (returns to mesh).
+**Web UI:** firmware upload, live logs (WebSocket + polling), **Copy logs**, clear logs, **Exit portal** (returns to mesh), **Restart** (`/restart`).
 
 **Log buffer:** `DEBUG_LOG_BUFFER_BYTES` (16 KB default) in `app_config.h`. Oldest lines drop when full.
+
+### Mesh messages
+
+- Root **slave discovery** requests are answered automatically.
+- Root **`DUMMY_BROADCAST`** keepalives update mesh RX timing but are not parsed as Modbus (no invalid-packet error).
+
+### Portal mesh teardown
+
+Entering portal stops painlessMesh safely: receive callback cleared before stop, mesh stack drained with `yield()`, Wi-Fi set to `WIFI_OFF`, watchdog fed during drain. Avoids crashes from calling mesh APIs after stop.
 
 ## Node Modbus registers
 
@@ -101,11 +110,13 @@ Standard **FC `0x03`** read; **FC `0x06` / `0x10`** write for holding registers 
 | `0x02` | AC status | `arr[1]` | Yes | `0` off, `1` on, `2` temp only, `3` off sequence; drives **LED_AC** |
 | `0x03` | AC hit / trigger | `arr[2]` | Yes | Write sets `flag` → IR send on next loop |
 | `0x04` | IR cooldown (seconds) | `arr[3]` | Yes | Min time between IR sends |
-| `0x05` | Sensor read interval (seconds) | `arr[4]` | Yes | Modbus sensor poll period |
+| `0x05` | Sensor read interval (seconds) | `arr[4]` | Yes | Modbus sensor poll period (`TEMP_SENSOR=1` only) |
 | `0x21` | Temperature | sensor | No | From Modbus sensor when `TEMP_SENSOR=1`; else `0xFFFF` |
 | `0x22` | Humidity | sensor | No | From Modbus sensor when `TEMP_SENSOR=1`; else `0xFFFF` |
 | `0x23` | Mesh RSSI | Yes | No | Positive dBm (e.g. `-45` → `45`); `0` if no RSSI yet |
 | Other | — | — | — | Read returns `0xFFFF`; write → exception |
+
+Modbus register reads/writes and IR handling continue in **portal mode** (sensor polling runs only when `TEMP_SENSOR=1`).
 
 ### AC / IR control
 
@@ -118,6 +129,36 @@ Set `arr[1]` (reg `0x02`) and `arr[0]` (reg `0x01`) as needed, then write reg `0
 | `3` | AC off |
 
 `arr[3]` (reg `0x04`) is the cooldown in seconds between IR sends. `arr[4]` (reg `0x05`) is the sensor poll interval in seconds.
+
+## Portal / OTA
+
+### Portal timeout
+
+| Condition | Behavior |
+|-----------|----------|
+| No device on portal AP for **10 min** | Idle timeout → reboot → mesh node |
+| OTA upload in progress | Timeout paused |
+| First **60 s** after portal start | Timeout blocked (anti false-trigger) |
+| Device connected to AP | Activity timer refreshed |
+
+### Post-OTA verify hold
+
+After a successful OTA flash:
+
+1. NVS `otaVerify` flag re-enters portal on next boot for validation.
+2. For **60 s** (`PORTAL_OTA_VERIFY_MS`), **Exit** and **Restart** are blocked; serial logs show remaining time.
+3. After the hold expires, exit returns to mesh node mode.
+
+### Idle restart lockout
+
+| Condition | Behavior |
+|-----------|----------|
+| Mesh traffic seen and no mesh RX for **15 min** | Idle restart (counts toward limit) |
+| **10** consecutive idle restarts (NVS `node_boot`) | **Lockout** — no more auto-restart until healthy mesh Modbus response |
+| Successful Modbus reply sent on mesh | Clears consecutive idle restart count |
+| Portal exit / OTA reboot | Does **not** clear the counter |
+
+`DUMMY_BROADCAST` from the root counts as mesh RX and resets the 15-minute mesh-idle timer, but does **not** clear the lockout counter.
 
 ## LED indicators
 
@@ -176,18 +217,32 @@ Weak link:  MESH solid or slow blink | SIGNAL slow even (2s) | AC normal
 Strong:     MESH solid or slow blink | SIGNAL fast even (500ms) | AC normal
 ```
 
+## Debug logging
+
+Status every **5 s** via `printDebugInfo()` (Serial + portal log buffer).
+
+**Mesh mode:** summary line (`Status: <board> <firmware> | node <NODE_ID> | uptime … | heap …`), mesh RSSI, UART/mesh idle times, AC state, sensor line (`Sensor: <version>` or `Sensor: disabled` when `TEMP_SENSOR=0`), idle restart `N/10 [LOCKOUT]`.
+
+**Portal mode:** summary line, portal AP/clients/OTA/heap, plus AC and sensor status and idle restart line.
+
+Boot logs include board, AC model, and sensor config (`Sensor: disabled` when `TEMP_SENSOR=0`).
+
+Packet hex dumps use two digits per byte. Suppressed in portal mode except where needed for troubleshooting.
+
 ## Source layout
 
 | Module | Role |
 |--------|------|
 | `main.cpp` | Setup, loop, portal vs mesh orchestration |
-| `mesh_handler.cpp` | Mesh start/stop/update, RSSI sample |
+| `mesh_handler.cpp` | Mesh start/stop/update, RSSI sample, dummy broadcast filter |
 | `request_handler.cpp` | Modbus FC `03` / `06` / `10` |
 | `sensor_handler.cpp` | External Modbus sensor reads |
 | `ir_handler.cpp` / `ir_raw_data.cpp` | IR transmit, AC brand raw codes |
 | `portal_handler.cpp` / `portal_web.cpp` | Captive portal AP, OTA, web UI |
-| `button_handler.cpp` | 5 s hold → portal |
+| `button_handler.cpp` | 3 s hold → portal |
 | `led_handler.cpp` | LED patterns (mesh + portal) |
+| `restart_guard.cpp` | Limits consecutive auto-restarts (NVS); cleared on mesh Modbus reply |
+| `ota_rollback.cpp` | Post-OTA verify hold and portal re-entry |
 | `debug_print.cpp` / `debug_log.cpp` | Status logs, ring buffer |
 
 ## Build
@@ -203,8 +258,8 @@ Uses `partitions_ota.csv` and ESPAsyncWebServer (see `platformio.ini`).
 
 1. **Modbus read:** FC `0x03` for reg `0x21` (temp) or `0x23` (RSSI) via master → response on UDP.
 2. **AC write:** FC `0x06` to reg `0x03` → IR fires; **LED_AC** follows `arr[1]`.
-3. **Portal UDP:** `00 01 00 00 00 02 <nodeId> 41` via master → AP `OTA-NODE-<nodeId>`.
-4. **Portal button:** Hold GPIO 0 for 5 s → same AP.
+3. **Portal UDP:** `00 01 00 00 00 02 <NODE_ID> 41` via master → AP `OTA-NODE-<NODE_ID>`.
+4. **Portal button:** Hold GPIO 0 for 3 s → same AP.
 5. **Exit portal:** Web **Exit** or 10 min idle → reboot → mesh node mode.
 
 See also: [esp_mesh_master/README.md](../esp_mesh_master/README.md), [esp_mesh_root/README.md](../esp_mesh_root/README.md).

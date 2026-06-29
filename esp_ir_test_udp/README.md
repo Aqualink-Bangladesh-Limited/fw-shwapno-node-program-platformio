@@ -2,7 +2,7 @@
 
 **Test firmware only** — not deployed in production. Standalone harness to exercise **UDP Modbus** and **IR AC control** on a single ESP32-S3 without mesh, master, or root.
 
-Use this to validate IR codes, register writes, and UDP responses before merging changes into [`esp_mesh_node/`](../esp_mesh_node/).
+Use this to validate IR codes, register writes, and UDP responses before merging changes into [`esp_mesh_node/`](../esp_mesh_node/). For production mesh, portal, and OTA behavior see the [repo README](../README.md) and [esp_mesh_node/README.md](../esp_mesh_node/README.md).
 
 ## Configuration (`include/app_config.h`)
 
