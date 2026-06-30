@@ -11,9 +11,11 @@
 #define NODE_ID 11
 
 // #define CARRIER_01
+// #define CARRIER_02
 // #define GENERAL_01
 // #define GREE_01
 // #define GREE_02
+#define GREE_03
 // #define MIDEA_01
 // #define MIDEA_02
 // #define MIDEA_03
@@ -25,7 +27,7 @@
 // #define YORK_01
 // #define YORK_02
 // #define CHIGO_01
-#define QUNDA_01
+// #define QUNDA_01
 
 // #define BOARD_VERSION_01
 // #define BOARD_VERSION_02
@@ -195,6 +197,13 @@ extern uint16_t temp_array[13][irRawLength];
 #elif defined(GREE_02)
 
 #define irRawLength 139
+extern uint16_t ac_on_raw[irRawLength];
+extern uint16_t ac_off_raw[irRawLength];
+extern uint16_t temp_array[13][irRawLength];
+
+#elif defined(GREE_03)
+
+#define irRawLength 419
 extern uint16_t ac_on_raw[irRawLength];
 extern uint16_t ac_off_raw[irRawLength];
 extern uint16_t temp_array[13][irRawLength];

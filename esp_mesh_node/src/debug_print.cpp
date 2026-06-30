@@ -23,6 +23,8 @@ static const char *acModelString()
   return "GREE_01";
 #elif defined(GREE_02)
   return "GREE_02";
+#elif defined(GREE_03)
+  return "GREE_03";
 #elif defined(MIDEA_01)
   return "MIDEA_01";
 #elif defined(MIDEA_02)
